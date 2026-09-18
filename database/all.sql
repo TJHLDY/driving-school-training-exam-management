@@ -1,0 +1,576 @@
+-- 01_schema.sql
+
+-- 数据库结构
+CREATE DATABASE IF NOT EXISTS driving_school DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE driving_school;
+
+CREATE TABLE user_account (
+  user_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  username VARCHAR(50) NOT NULL UNIQUE,
+  password_hash VARCHAR(100) NOT NULL,
+  real_name VARCHAR(50) NOT NULL,
+  phone VARCHAR(20),
+  account_status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT ck_user_status CHECK (account_status IN ('ACTIVE','DISABLED'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE role (
+  role_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  role_code VARCHAR(30) NOT NULL UNIQUE,
+  role_name VARCHAR(50) NOT NULL,
+  description VARCHAR(200)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE user_role (
+  user_id BIGINT NOT NULL,
+  role_id BIGINT NOT NULL,
+  assigned_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id, role_id),
+  CONSTRAINT fk_user_role_user FOREIGN KEY (user_id) REFERENCES user_account(user_id),
+  CONSTRAINT fk_user_role_role FOREIGN KEY (role_id) REFERENCES role(role_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE menu (
+  menu_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  menu_code VARCHAR(50) NOT NULL UNIQUE,
+  menu_name VARCHAR(50) NOT NULL,
+  menu_path VARCHAR(120) NOT NULL,
+  sort_no INT NOT NULL DEFAULT 0,
+  enabled TINYINT NOT NULL DEFAULT 1
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE role_menu (
+  role_id BIGINT NOT NULL,
+  menu_id BIGINT NOT NULL,
+  PRIMARY KEY (role_id, menu_id),
+  CONSTRAINT fk_role_menu_role FOREIGN KEY (role_id) REFERENCES role(role_id),
+  CONSTRAINT fk_role_menu_menu FOREIGN KEY (menu_id) REFERENCES menu(menu_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE student_profile (
+  student_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  user_id BIGINT NOT NULL UNIQUE,
+  id_card_no VARCHAR(30) NOT NULL UNIQUE,
+  gender VARCHAR(10),
+  birth_date DATE,
+  enrollment_status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_student_user FOREIGN KEY (user_id) REFERENCES user_account(user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE coach_profile (
+  coach_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  user_id BIGINT NOT NULL UNIQUE,
+  coach_no VARCHAR(30) NOT NULL UNIQUE,
+  license_type VARCHAR(20) NOT NULL,
+  employment_status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+  CONSTRAINT fk_coach_user FOREIGN KEY (user_id) REFERENCES user_account(user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE training_vehicle (
+  vehicle_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  plate_no VARCHAR(20) NOT NULL UNIQUE,
+  vehicle_model VARCHAR(60) NOT NULL,
+  license_type VARCHAR(20) NOT NULL,
+  vehicle_status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE training_package (
+  package_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  package_code VARCHAR(30) NOT NULL UNIQUE,
+  package_name VARCHAR(80) NOT NULL,
+  price DECIMAL(10,2) NOT NULL,
+  planned_hours DECIMAL(5,1) NOT NULL,
+  enabled TINYINT NOT NULL DEFAULT 1,
+  CONSTRAINT ck_package_price CHECK (price >= 0),
+  CONSTRAINT ck_package_hours CHECK (planned_hours > 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE enrollment (
+  enrollment_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  student_id BIGINT NOT NULL,
+  package_id BIGINT NOT NULL,
+  submitted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  status VARCHAR(20) NOT NULL DEFAULT 'DRAFT',
+  reviewed_by BIGINT,
+  reviewed_at DATETIME,
+  review_note VARCHAR(300),
+  required_amount DECIMAL(10,2) NOT NULL,
+  active_at DATETIME,
+  CONSTRAINT fk_enrollment_student FOREIGN KEY (student_id) REFERENCES student_profile(student_id),
+  CONSTRAINT fk_enrollment_package FOREIGN KEY (package_id) REFERENCES training_package(package_id),
+  CONSTRAINT fk_enrollment_reviewer FOREIGN KEY (reviewed_by) REFERENCES user_account(user_id),
+  CONSTRAINT ck_enrollment_status CHECK (status IN ('DRAFT','SUBMITTED','REJECTED','APPROVED','ACTIVE','WITHDRAWN'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE payment_record (
+  payment_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  enrollment_id BIGINT NOT NULL,
+  received_by BIGINT NOT NULL,
+  payment_amount DECIMAL(10,2) NOT NULL,
+  payment_method VARCHAR(20) NOT NULL,
+  voucher_no VARCHAR(50) NOT NULL UNIQUE,
+  paid_at DATETIME NOT NULL,
+  payment_status VARCHAR(20) NOT NULL DEFAULT 'SUCCESS',
+  CONSTRAINT fk_payment_enrollment FOREIGN KEY (enrollment_id) REFERENCES enrollment(enrollment_id),
+  CONSTRAINT fk_payment_receiver FOREIGN KEY (received_by) REFERENCES user_account(user_id),
+  CONSTRAINT ck_payment_amount CHECK (payment_amount > 0),
+  CONSTRAINT ck_payment_status CHECK (payment_status IN ('SUCCESS','VOID'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE training_slot (
+  slot_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  slot_start DATETIME NOT NULL,
+  slot_end DATETIME NOT NULL,
+  location VARCHAR(100) NOT NULL,
+  capacity INT NOT NULL DEFAULT 1,
+  slot_status VARCHAR(20) NOT NULL DEFAULT 'OPEN',
+  created_by BIGINT NOT NULL,
+  CONSTRAINT fk_slot_creator FOREIGN KEY (created_by) REFERENCES user_account(user_id),
+  CONSTRAINT ck_slot_time CHECK (slot_end > slot_start),
+  CONSTRAINT ck_slot_capacity CHECK (capacity > 0),
+  CONSTRAINT ck_slot_status CHECK (slot_status IN ('OPEN','CLOSED','EXPIRED'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE training_booking (
+  booking_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  student_id BIGINT NOT NULL,
+  slot_id BIGINT NOT NULL,
+  booking_status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+  requested_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  cancelled_at DATETIME,
+  cancel_reason VARCHAR(300),
+  CONSTRAINT fk_booking_student FOREIGN KEY (student_id) REFERENCES student_profile(student_id),
+  CONSTRAINT fk_booking_slot FOREIGN KEY (slot_id) REFERENCES training_slot(slot_id),
+  CONSTRAINT uq_booking_student_slot UNIQUE (student_id, slot_id),
+  CONSTRAINT ck_booking_status CHECK (booking_status IN ('PENDING','ASSIGNED','CANCELLED','COMPLETED'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE training_assignment (
+  assignment_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  booking_id BIGINT NOT NULL UNIQUE,
+  coach_id BIGINT NOT NULL,
+  vehicle_id BIGINT NOT NULL,
+  assigned_by BIGINT NOT NULL,
+  assigned_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  assignment_status VARCHAR(20) NOT NULL DEFAULT 'ASSIGNED',
+  CONSTRAINT fk_assignment_booking FOREIGN KEY (booking_id) REFERENCES training_booking(booking_id),
+  CONSTRAINT fk_assignment_coach FOREIGN KEY (coach_id) REFERENCES coach_profile(coach_id),
+  CONSTRAINT fk_assignment_vehicle FOREIGN KEY (vehicle_id) REFERENCES training_vehicle(vehicle_id),
+  CONSTRAINT fk_assignment_assigner FOREIGN KEY (assigned_by) REFERENCES user_account(user_id),
+  CONSTRAINT ck_assignment_status CHECK (assignment_status IN ('ASSIGNED','CANCELLED','COMPLETED'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE training_record (
+  record_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  assignment_id BIGINT NOT NULL UNIQUE,
+  recorded_by BIGINT NOT NULL,
+  actual_start DATETIME NOT NULL,
+  actual_end DATETIME NOT NULL,
+  valid_hours DECIMAL(5,1) NOT NULL,
+  record_status VARCHAR(20) NOT NULL DEFAULT 'COMPLETED',
+  remark VARCHAR(300),
+  CONSTRAINT fk_record_assignment FOREIGN KEY (assignment_id) REFERENCES training_assignment(assignment_id),
+  CONSTRAINT fk_record_recorder FOREIGN KEY (recorded_by) REFERENCES user_account(user_id),
+  CONSTRAINT ck_record_time CHECK (actual_end > actual_start),
+  CONSTRAINT ck_record_hours CHECK (valid_hours >= 0),
+  CONSTRAINT ck_record_status CHECK (record_status IN ('COMPLETED','INVALID'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE question_bank (
+  question_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  category VARCHAR(30) NOT NULL,
+  stem VARCHAR(500) NOT NULL,
+  option_a VARCHAR(300) NOT NULL,
+  option_b VARCHAR(300) NOT NULL,
+  option_c VARCHAR(300) NOT NULL,
+  option_d VARCHAR(300) NOT NULL,
+  correct_option CHAR(1) NOT NULL,
+  explanation VARCHAR(500) NOT NULL,
+  enabled TINYINT NOT NULL DEFAULT 1,
+  created_by BIGINT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_question_creator FOREIGN KEY (created_by) REFERENCES user_account(user_id),
+  CONSTRAINT ck_question_option CHECK (correct_option IN ('A','B','C','D'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE mock_exam (
+  exam_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  exam_name VARCHAR(100) NOT NULL,
+  question_count INT NOT NULL DEFAULT 20,
+  duration_minutes INT NOT NULL DEFAULT 20,
+  pass_score INT NOT NULL DEFAULT 90,
+  status VARCHAR(20) NOT NULL DEFAULT 'DRAFT',
+  submitted_by BIGINT NOT NULL,
+  reviewed_by BIGINT,
+  reviewed_at DATETIME,
+  review_note VARCHAR(300),
+  published_at DATETIME,
+  CONSTRAINT fk_exam_submitter FOREIGN KEY (submitted_by) REFERENCES user_account(user_id),
+  CONSTRAINT fk_exam_reviewer FOREIGN KEY (reviewed_by) REFERENCES user_account(user_id),
+  CONSTRAINT ck_exam_status CHECK (status IN ('DRAFT','SUBMITTED','REJECTED','PUBLISHED','CLOSED')),
+  CONSTRAINT ck_exam_count CHECK (question_count = 20),
+  CONSTRAINT ck_exam_duration CHECK (duration_minutes > 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE mock_exam_question (
+  exam_question_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  exam_id BIGINT NOT NULL,
+  question_id BIGINT NOT NULL,
+  position_no INT NOT NULL,
+  stem_snapshot VARCHAR(500) NOT NULL,
+  option_a_snapshot VARCHAR(300) NOT NULL,
+  option_b_snapshot VARCHAR(300) NOT NULL,
+  option_c_snapshot VARCHAR(300) NOT NULL,
+  option_d_snapshot VARCHAR(300) NOT NULL,
+  correct_option_snapshot CHAR(1) NOT NULL,
+  explanation_snapshot VARCHAR(500) NOT NULL,
+  CONSTRAINT fk_exam_question_exam FOREIGN KEY (exam_id) REFERENCES mock_exam(exam_id),
+  CONSTRAINT fk_exam_question_source FOREIGN KEY (question_id) REFERENCES question_bank(question_id),
+  CONSTRAINT uq_exam_question UNIQUE (exam_id, question_id),
+  CONSTRAINT uq_exam_position UNIQUE (exam_id, position_no),
+  CONSTRAINT ck_exam_snapshot_option CHECK (correct_option_snapshot IN ('A','B','C','D'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE exam_attempt (
+  attempt_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  exam_id BIGINT NOT NULL,
+  student_id BIGINT NOT NULL,
+  attempt_status VARCHAR(20) NOT NULL DEFAULT 'IN_PROGRESS',
+  started_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  deadline_at DATETIME NOT NULL,
+  submitted_at DATETIME,
+  score INT,
+  correct_count INT,
+  passed TINYINT,
+  CONSTRAINT fk_attempt_exam FOREIGN KEY (exam_id) REFERENCES mock_exam(exam_id),
+  CONSTRAINT fk_attempt_student FOREIGN KEY (student_id) REFERENCES student_profile(student_id),
+  CONSTRAINT ck_attempt_status CHECK (attempt_status IN ('IN_PROGRESS','SUBMITTED','EXPIRED')),
+  CONSTRAINT ck_attempt_deadline CHECK (deadline_at > started_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE exam_attempt_answer (
+  answer_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  attempt_id BIGINT NOT NULL,
+  exam_question_id BIGINT NOT NULL,
+  selected_option CHAR(1),
+  is_correct TINYINT,
+  score_awarded INT NOT NULL DEFAULT 0,
+  answered_at DATETIME,
+  CONSTRAINT fk_answer_attempt FOREIGN KEY (attempt_id) REFERENCES exam_attempt(attempt_id),
+  CONSTRAINT fk_answer_exam_question FOREIGN KEY (exam_question_id) REFERENCES mock_exam_question(exam_question_id),
+  CONSTRAINT uq_attempt_question UNIQUE (attempt_id, exam_question_id),
+  CONSTRAINT ck_selected_option CHECK (selected_option IS NULL OR selected_option IN ('A','B','C','D')),
+  CONSTRAINT ck_answer_score CHECK (score_awarded IN (0,5))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE withdrawal_request (
+  withdrawal_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  student_id BIGINT NOT NULL,
+  reason VARCHAR(500) NOT NULL,
+  requested_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  status VARCHAR(20) NOT NULL DEFAULT 'SUBMITTED',
+  reviewed_by BIGINT,
+  reviewed_at DATETIME,
+  review_note VARCHAR(300),
+  approved_refund_amount DECIMAL(10,2),
+  CONSTRAINT fk_withdrawal_student FOREIGN KEY (student_id) REFERENCES student_profile(student_id),
+  CONSTRAINT fk_withdrawal_reviewer FOREIGN KEY (reviewed_by) REFERENCES user_account(user_id),
+  CONSTRAINT ck_withdrawal_status CHECK (status IN ('SUBMITTED','REJECTED','APPROVED','REFUNDED')),
+  CONSTRAINT ck_withdrawal_amount CHECK (approved_refund_amount IS NULL OR approved_refund_amount >= 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE refund_record (
+  refund_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  withdrawal_id BIGINT NOT NULL,
+  paid_by BIGINT NOT NULL,
+  refund_amount DECIMAL(10,2) NOT NULL,
+  refund_method VARCHAR(20) NOT NULL,
+  voucher_no VARCHAR(50) NOT NULL UNIQUE,
+  refunded_at DATETIME NOT NULL,
+  refund_status VARCHAR(20) NOT NULL DEFAULT 'SUCCESS',
+  CONSTRAINT fk_refund_withdrawal FOREIGN KEY (withdrawal_id) REFERENCES withdrawal_request(withdrawal_id),
+  CONSTRAINT fk_refund_payer FOREIGN KEY (paid_by) REFERENCES user_account(user_id),
+  CONSTRAINT ck_refund_amount CHECK (refund_amount > 0),
+  CONSTRAINT ck_refund_status CHECK (refund_status IN ('SUCCESS','VOID'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE INDEX idx_enrollment_student_status ON enrollment(student_id, status);
+CREATE INDEX idx_slot_time_status ON training_slot(slot_start, slot_end, slot_status);
+CREATE INDEX idx_booking_slot_status ON training_booking(slot_id, booking_status);
+CREATE INDEX idx_assignment_resource_status ON training_assignment(coach_id, vehicle_id, assignment_status);
+CREATE INDEX idx_question_enabled ON question_bank(enabled, category);
+CREATE INDEX idx_attempt_student_status ON exam_attempt(student_id, attempt_status);
+CREATE INDEX idx_withdrawal_student_status ON withdrawal_request(student_id, status);
+
+
+-- 02_base_seed.sql
+
+USE driving_school;
+
+-- 基础数据
+INSERT INTO role (role_id, role_code, role_name, description) VALUES
+(1,'ADMIN','管理员','维护用户、角色和菜单'),
+(2,'STUDENT','学员','报名、预约、练习和退学申请'),
+(3,'ACADEMIC','教务','审核报名、分配资源和审核考试'),
+(4,'COACH','教练','维护题库和登记训练'),
+(5,'FINANCE','财务','登记缴费和退款');
+
+INSERT INTO menu (menu_id, menu_code, menu_name, menu_path, sort_no, enabled) VALUES
+(1,'USER_ROLE','用户与角色','/admin/users',10,1),
+(2,'ENROLLMENT','报名管理','/enrollments',20,1),
+(3,'PAYMENT','缴费管理','/payments',30,1),
+(4,'SLOT','培训时段','/training/slots',40,1),
+(5,'BOOKING','培训预约','/training/bookings',50,1),
+(6,'QUESTION','题库管理','/questions',60,1),
+(7,'MOCK_EXAM','模拟考试','/mock-exams',70,1),
+(8,'RESULT','成绩查询','/exam-results',80,1),
+(9,'WITHDRAWAL','退学退费','/withdrawals',90,1),
+(10,'PROFILE','个人中心','/profile',100,1);
+
+INSERT INTO role_menu (role_id, menu_id) VALUES
+(1,1),(1,2),(1,3),(1,4),(1,5),(1,6),(1,7),(1,8),(1,9),(1,10),
+(2,2),(2,5),(2,7),(2,8),(2,9),(2,10),
+(3,2),(3,4),(3,5),(3,7),(3,9),(3,10),
+(4,5),(4,6),(4,7),(4,10),
+(5,3),(5,9),(5,10);
+
+INSERT INTO user_account (user_id, username, password_hash, real_name, phone, account_status) VALUES
+(1,'admin','$2a$10$7EqJtq98hPqEX7fNZaFWoOaSe9JfA5D4zwHh6F8vR0W1XvW8vS4.a','系统管理员','13800000001','ACTIVE'),
+(2,'academic01','$2a$10$7EqJtq98hPqEX7fNZaFWoOaSe9JfA5D4zwHh6F8vR0W1XvW8vS4.a','王教务','13800000002','ACTIVE'),
+(3,'finance01','$2a$10$7EqJtq98hPqEX7fNZaFWoOaSe9JfA5D4zwHh6F8vR0W1XvW8vS4.a','赵财务','13800000003','ACTIVE'),
+(4,'coach01','$2a$10$7EqJtq98hPqEX7fNZaFWoOaSe9JfA5D4zwHh6F8vR0W1XvW8vS4.a','李教练','13800000004','ACTIVE'),
+(5,'coach02','$2a$10$7EqJtq98hPqEX7fNZaFWoOaSe9JfA5D4zwHh6F8vR0W1XvW8vS4.a','周教练','13800000005','ACTIVE'),
+(6,'student01','$2a$10$7EqJtq98hPqEX7fNZaFWoOaSe9JfA5D4zwHh6F8vR0W1XvW8vS4.a','张同学','13800000006','ACTIVE'),
+(7,'student02','$2a$10$7EqJtq98hPqEX7fNZaFWoOaSe9JfA5D4zwHh6F8vR0W1XvW8vS4.a','陈同学','13800000007','ACTIVE'),
+(8,'demo_multi','$2a$10$7EqJtq98hPqEX7fNZaFWoOaSe9JfA5D4zwHh6F8vR0W1XvW8vS4.a','多角色演示账号','13800000008','ACTIVE');
+
+INSERT INTO user_role (user_id, role_id) VALUES
+(1,1),(2,3),(3,5),(4,4),(5,4),(6,2),(7,2),(8,2),(8,3);
+
+INSERT INTO student_profile (student_id, user_id, id_card_no, gender, birth_date, enrollment_status) VALUES
+(1,6,'110101200401010011','男','2004-01-01','ACTIVE'),
+(2,7,'110101200402020022','女','2004-02-02','PENDING'),
+(3,8,'110101200403030033','男','2004-03-03','ACTIVE');
+
+INSERT INTO coach_profile (coach_id, user_id, coach_no, license_type, employment_status) VALUES
+(1,4,'C001','C1','ACTIVE'),
+(2,5,'C002','C1','ACTIVE');
+
+INSERT INTO training_vehicle (vehicle_id, plate_no, vehicle_model, license_type, vehicle_status) VALUES
+(1,'京A·D1001','桑塔纳手动挡','C1','ACTIVE'),
+(2,'京A·D1002','朗逸手动挡','C1','ACTIVE');
+
+INSERT INTO training_package (package_id, package_code, package_name, price, planned_hours, enabled) VALUES
+(1,'C1-BASIC','C1基础班',3000.00,40.0,1),
+(2,'C1-PLUS','C1强化班',3800.00,52.0,1);
+
+INSERT INTO enrollment (enrollment_id, student_id, package_id, submitted_at, status, reviewed_by, reviewed_at, review_note, required_amount, active_at) VALUES
+(1,1,1,'2026-09-01 09:00:00','ACTIVE',2,'2026-09-01 10:00:00','资料齐全',3000.00,'2026-09-01 14:00:00'),
+(2,2,2,'2026-09-15 09:00:00','SUBMITTED',NULL,NULL,NULL,3800.00,NULL),
+(3,3,1,'2026-09-02 09:00:00','ACTIVE',2,'2026-09-02 10:00:00','资料齐全',3000.00,'2026-09-02 14:00:00');
+
+INSERT INTO payment_record (payment_id, enrollment_id, received_by, payment_amount, payment_method, voucher_no, paid_at, payment_status) VALUES
+(1,1,3,3000.00,'CASH','PAY-20260901-001','2026-09-01 13:30:00','SUCCESS'),
+(2,3,3,3000.00,'TRANSFER','PAY-20260902-001','2026-09-02 13:30:00','SUCCESS');
+
+INSERT INTO training_slot (slot_id, slot_start, slot_end, location, capacity, slot_status, created_by) VALUES
+(1,'2026-09-18 09:00:00','2026-09-18 11:00:00','训练场A区',1,'OPEN',2),
+(2,'2026-09-19 14:00:00','2026-09-19 16:00:00','训练场B区',1,'OPEN',2),
+(3,'2026-09-10 09:00:00','2026-09-10 11:00:00','训练场A区',1,'CLOSED',2);
+
+INSERT INTO training_booking (booking_id, student_id, slot_id, booking_status, requested_at) VALUES
+(1,1,1,'PENDING','2026-09-16 09:00:00'),
+(2,3,3,'COMPLETED','2026-09-08 09:00:00');
+
+INSERT INTO training_assignment (assignment_id, booking_id, coach_id, vehicle_id, assigned_by, assigned_at, assignment_status) VALUES
+(1,2,1,1,2,'2026-09-08 10:00:00','COMPLETED');
+
+INSERT INTO training_record (record_id, assignment_id, recorded_by, actual_start, actual_end, valid_hours, record_status, remark) VALUES
+(1,1,4,'2026-09-10 09:00:00','2026-09-10 11:00:00',2.0,'COMPLETED','倒车入库练习完成');
+
+INSERT INTO withdrawal_request (withdrawal_id, student_id, reason, requested_at, status, reviewed_by, reviewed_at, review_note, approved_refund_amount) VALUES
+(1,3,'个人时间安排变化','2026-09-12 09:00:00','APPROVED',2,'2026-09-13 10:00:00','扣除已完成训练费用后退还余额',2600.00);
+
+INSERT INTO refund_record (refund_id, withdrawal_id, paid_by, refund_amount, refund_method, voucher_no, refunded_at, refund_status) VALUES
+(1,1,3,2600.00,'TRANSFER','REF-20260914-001','2026-09-14 11:00:00','SUCCESS');
+
+
+-- 03_questions_seed.sql
+
+USE driving_school;
+
+-- 题库与模拟考试数据
+INSERT INTO question_bank (category, stem, option_a, option_b, option_c, option_d, correct_option, explanation, enabled, created_by) VALUES
+('交通信号','绿灯亮时，车辆通常可以怎样通行？','立即加速抢行','按信号通行并注意让行','停在原地等待','任意掉头','B','绿灯表示准许通行，但转弯车辆不得妨碍被放行对象。',1,4),
+('交通信号','红灯亮时，机动车应当怎样做？','禁止通行','加速通过','随意右转','鸣笛后通过','A','红灯表示禁止车辆通行。',1,4),
+('交通信号','黄灯亮时，已经越过停止线的车辆可以怎样做？','继续通行','必须倒车','立即熄火','停在路口中央','A','已越过停止线的车辆可以继续通行。',1,4),
+('交通信号','闪光黄灯主要提示驾驶人什么？','确认安全后通过','必须停车等待','可以逆行','必须掉头','A','闪光黄灯提示注意瞭望并确认安全。',1,4),
+('交通信号','方向指示信号灯的箭头向左表示什么？','允许左转','允许倒车','禁止直行','允许停车','A','箭头方向表示车辆允许的行驶方向。',1,4),
+('道路通行','没有交通标志控制的路口，进入前应当怎样做？','加速抢行','停车瞭望并让行','关闭灯光','鸣笛不减速','B','进入无控制路口前应观察并让行。',1,4),
+('道路通行','转弯机动车与直行机动车相遇时，应当怎样通行？','转弯车让直行车','直行车让转弯车','同时通过','谁车大谁先行','A','转弯车辆不得妨碍直行车辆通行。',1,4),
+('道路通行','相对方向车辆同时转弯时，右转弯车辆应当让谁先行？','左转弯车辆','后方车辆','非机动车道车辆','同向车辆','A','相对方向右转弯车辆应让左转弯车辆先行。',1,4),
+('道路通行','通过人行横道前，驾驶人应重点注意什么？','礼让行人','关闭雨刷','提高音量','只看后视镜','A','人行横道前应减速观察并礼让行人。',1,4),
+('道路通行','准备变更车道时，正确做法是？','观察后视镜并开启转向灯','直接转动方向盘','只按喇叭','紧跟前车变道','A','变道前应观察并提前示意。',1,4),
+('道路通行','在高速公路上错过出口时，正确做法是？','继续行驶到下一出口','倒车回出口','掉头回出口','停在应急车道等待','A','错过出口应继续行驶至下一出口。',1,4),
+('道路通行','车辆行驶中发现前方有学校区域标志，应当怎样做？','减速观察','加速通过','连续鸣笛','占用对向车道','A','学校区域应减速并注意学生通行。',1,4),
+('道路通行','遇前方道路施工时，驾驶人应当怎样做？','按标志减速绕行','强行进入施工区','停在施工区内','逆向驶入','A','施工路段应服从标志标线和现场指挥。',1,4),
+('道路通行','会车时应当保持什么状态？','靠右减速并保持安全距离','加速贴近对方','占用对向车道','关闭车灯','A','会车需靠右并留足横向距离。',1,4),
+('道路通行','超车前最重要的条件之一是什么？','确认前方和对向安全','只要按喇叭即可','跟车越近越好','在弯道超车','A','超车必须确认视距和对向无来车。',1,4),
+('安全驾驶','雨天路面湿滑时，正确做法是？','降低车速并增大距离','高速紧跟前车','频繁急刹车','关闭雨刷','A','湿滑路面制动距离增加，应降低车速。',1,4),
+('安全驾驶','雾天行车应优先使用什么灯光？','雾灯或近光灯','远光灯','关闭全部灯光','车内照明灯','A','雾天远光反射会影响视线，应使用雾灯或近光。',1,4),
+('安全驾驶','夜间会车时应当怎样使用灯光？','切换近光灯','始终开远光灯','关闭车灯','只开示宽灯','A','夜间会车应使用近光避免眩目。',1,4),
+('安全驾驶','驾驶人感到困倦时，最安全的做法是？','停车休息','继续加速赶路','打开音乐硬撑','频繁变道提神','A','疲劳驾驶会降低反应能力，应停车休息。',1,4),
+('安全驾驶','车辆爆胎时，驾驶人首先应当怎样做？','握稳方向盘并缓慢减速','猛踩制动踏板','立即急打方向','关闭发动机滑行','A','爆胎时应保持方向稳定，避免急制动。',1,4),
+('安全驾驶','制动失灵时，正确的应急原则是？','逐级减挡并利用安全区域减速','立即跳车','高速转弯','关闭方向盘控制','A','应利用发动机制动和安全区域逐步减速。',1,4),
+('安全驾驶','车辆涉水前，驾驶人应当先判断什么？','水深和通行安全','音乐是否打开','空调温度','导航颜色','A','涉水前需判断水深是否超过车辆安全范围。',1,4),
+('安全驾驶','下长坡时，正确做法是？','使用低挡位控制车速','长时间空挡滑行','持续踩死制动','关闭发动机','A','低挡位可利用发动机制动。',1,4),
+('安全驾驶','冰雪路面起步时，应当怎样操作？','缓慢平稳起步','猛踩油门','急转方向盘','紧跟前车起步','A','冰雪路面附着力低，应平稳操作。',1,4),
+('安全驾驶','驾驶车辆时使用手机会带来什么风险？','分散注意力','提高反应速度','减少制动距离','改善视线','A','使用手机会分散驾驶注意力。',1,4),
+('安全驾驶','安全带的主要作用是什么？','在碰撞时约束乘员','提高车速','代替安全气囊','改善油耗','A','安全带可减少碰撞时乘员受伤风险。',1,4),
+('安全驾驶','儿童乘车应优先使用什么？','合适的儿童安全座椅','成人安全带单独固定','站立乘车','坐在前排抱着','A','儿童应使用与年龄体型匹配的安全座椅。',1,4),
+('停车规则','在设有禁停标志的路段，机动车可以怎样停车？','不得停车','可以长时间停车','只要开双闪即可','随时停车上下客','A','禁停标志路段禁止停车。',1,4),
+('停车规则','交叉路口附近多少米内通常不得停车？','50米内','5米内','10米内','100米外才可停车','A','交叉路口等地点50米内不得停车。',1,4),
+('停车规则','公共汽车站附近多少米内通常不得停车？','30米内','3米内','10米内','没有限制','A','公交站等地点30米内不得停车。',1,4),
+('停车规则','路边临时停车后，驾驶人通常应当怎样做？','完成上下客后立即驶离','离车购物','长时间等待','占用车道聊天','A','临时停车应尽快完成事项并驶离。',1,4),
+('停车规则','车辆未停稳前能否开车门上下人员？','不能','可以','只要有人扶门即可','夜间可以','A','车辆未停稳前开门上下人员不安全。',1,4),
+('停车规则','在隧道内能否随意停车？','不能','可以拍照停车','只要开双闪即可','堵车时可掉头','A','隧道内停车风险高，禁止随意停车。',1,4),
+('违法处理','饮酒后驾驶机动车会怎样？','增加违法和事故风险','提高夜间视力','缩短反应时间','无需休息','A','饮酒会降低判断和操作能力。',1,4),
+('违法处理','驾驶证被依法暂扣期间，驾驶人能否驾驶机动车？','不能','可以短距离驾驶','可以夜间驾驶','可以在停车场驾驶','A','驾驶证被暂扣期间不得驾驶机动车。',1,4),
+('违法处理','发生轻微交通事故且无人员受伤时，首先应当怎样处理？','在确保安全前提下记录信息并按规定处理','直接离开现场','争吵不处理','堵塞道路等待','A','应先保障安全并留存必要信息。',1,4),
+('违法处理','发生交通事故造成人员受伤时，应优先做什么？','保护现场并及时救助报警','立即驾车离开','先拍视频再处理','继续行驶','A','人员救助和报警是首要事项。',1,4),
+('违法处理','遇交警现场指挥与信号灯不一致时，应当服从什么？','交警现场指挥','信号灯','其他车辆','导航软件','A','现场交通警察指挥优先。',1,4),
+('驾驶证','初次申领小型汽车驾驶证前，理论知识考试通常属于哪个科目？','科目一','科目二','科目三路考','体检科目','A','科目一考查道路交通安全法律法规等知识。',1,4),
+('驾驶证','申请驾驶证时，申请人应当如实提交什么？','本人真实材料','他人材料','网络截图即可','无需材料','A','申请材料应真实有效。',1,4),
+('驾驶证','驾驶机动车时应当随身携带什么？','驾驶证','学生证','购物小票','银行卡','A','驾驶机动车应按规定携带驾驶证。',1,4),
+('驾驶证','驾驶证有效期届满前应及时办理什么？','换证手续','注销车辆','更换车牌','购买新车','A','驾驶证期满应按规定换证。',1,4),
+('驾驶证','实习期驾驶人驾驶车辆时应特别注意什么？','遵守实习期相关规定','可无证带教','可随意超速','可不系安全带','A','实习期驾驶人应遵守相应管理规定。',1,4),
+('车辆登记','机动车号牌应当怎样安装？','按规定安装并保持清晰','遮挡部分数字','随意放在车内','用纸张代替','A','号牌应规范安装且清晰可辨。',1,4),
+('车辆登记','车辆出现故障无法正常行驶时，应当怎样做？','开启危险报警闪光灯并采取警示措施','停在行车道不处理','关闭全部灯光','继续高速行驶','A','故障车辆应警示后方并保障安全。',1,4),
+('车辆登记','机动车安全技术检验的目的主要是什么？','保障车辆安全状况','提高车速','增加座位','减少驾驶证使用','A','检验用于确认车辆符合安全要求。',1,4),
+('车辆登记','车辆转让后应及时办理什么手续？','相关登记变更','不需要任何手续','只换驾驶员','只换保险贴','A','车辆权属变化应依法办理登记。',1,4),
+('车辆登记','发现轮胎胎压明显异常时，应当怎样做？','检查处理后再安全行驶','继续高速驾驶','加速行驶','忽略警告灯','A','胎压异常影响操纵与制动安全。',1,4),
+('文明驾驶','遇前方车辆礼让行人时，后车应当怎样做？','减速等待','从旁边强行超越','连续鸣笛催促','占用人行道','A','应共同礼让行人，避免绕行抢行。',1,4),
+('文明驾驶','驾驶人发现后方救护车鸣笛接近时，应当怎样做？','在确保安全前提下让行','占用车道阻挡','加速不让','跟随救护车行驶','A','应主动让行执行紧急任务车辆。',1,4),
+('文明驾驶','在居民区夜间驾驶时，应当注意什么？','减少不必要鸣笛','持续鸣笛','开远光照住居民楼','高速通过','A','应降低噪声并注意行人。',1,4),
+('文明驾驶','驾驶人情绪激动时，正确做法是？','平复情绪后再驾驶','带情绪加速驾驶','与他车竞速','频繁急刹车','A','情绪会影响判断，应先调整状态。',1,4),
+('文明驾驶','乘客下车前，驾驶人应当提醒什么？','观察后方来车再开门','立即推门下车','不用观察','在车道中央下车','A','开门前应防止影响其他车辆和行人。',1,4),
+('交通标志','三角形警告标志通常表示什么？','前方有需要注意的危险','允许加速','停车场入口','单行出口','A','警告标志用于提示道路危险或注意事项。',1,4),
+('交通标志','圆形红边禁令标志通常表示什么？','禁止或限制','服务设施','旅游景点','道路名称','A','禁令标志表示禁止或限制行为。',1,4),
+('交通标志','蓝色指示标志通常表示什么？','应遵循的行驶方向或规定','危险路段','禁止通行','施工结束','A','指示标志用于指示车辆按规定行驶。',1,4),
+('交通标志','看到限速标志后应当怎样做？','不超过标明的最高速度','必须达到该速度','可以任意超速','只在夜间遵守','A','限速标志表示最高允许速度。',1,4),
+('交通标志','路面中心黄色实线一般表示什么？','禁止跨越对向车道','允许随意超车','停车区域','人行横道','A','黄色实线通常用于分隔对向车流，禁止跨越。',1,4),
+('交通标志','看到人行横道标线时应当怎样做？','减速观察并礼让行人','加速抢先通过','停在横道上','鸣笛催促行人','A','人行横道前应注意行人通行。',1,4),
+('预约培训','学员提交培训预约的前置条件是什么？','学籍有效且时段未开始','任何账号都可预约','已退学也可预约','无需选择时段','A','系统只允许有效学员预约未开始时段。',1,4),
+('预约培训','培训预约成功后是否自动计入学时？','不会，须由教练登记实际训练','会自动计满学时','只要登录就计入','取消后也计入','A','学时以实际训练记录为准。',1,4),
+('预约培训','同一时段能否把同一辆车分配给两名学员？','不能','可以','只要教练同意即可','夜间可以','A','车辆资源冲突应由系统阻止。',1,4),
+('预约培训','取消未来预约后，正确的状态是？','CANCELLED','COMPLETED','ACTIVE','PUBLISHED','A','取消预约应保留记录并标记取消。',1,4),
+('预约培训','教练登记训练结果前，应确认什么？','本人已被分配该预约','学员是否会开车','车辆颜色','天气预报','A','只有被分配的教练可登记记录。',1,4),
+('模拟考试','模拟考试题库初始化数量为多少？','100道','20道','10道','500道','A','本项目预置100道教学示例题。',1,4),
+('模拟考试','每次开始模拟考试应随机生成多少道题？','20道','100道','50道','1道','A','每名学员每次答卷抽取20道不重复题目。',1,4),
+('模拟考试','同一份进行中的答卷刷新页面后应怎样处理？','恢复原题序和答案','重新抽取新题','直接判零分','关闭考试','A','答卷题目和顺序在开始时固定。',1,4),
+('模拟考试','交卷前能否向学员返回正确答案？','不能','可以全部返回','只返回一半','可由学员自行修改','A','正确答案和解析应在提交后展示。',1,4),
+('模拟考试','本项目每题分值为多少？','5分','1分','2分','10分','A','20题每题5分，总分100分。',1,4),
+('模拟考试','本项目模拟考试默认及格分是多少？','90分','60分','80分','100分','A','设计约定默认90分达标。',1,4),
+('模拟考试','模拟考试默认答题时长是多少？','20分钟','5分钟','60分钟','不限时','A','设计约定答题时长为20分钟。',1,4),
+('模拟考试','已经发布的考试任务题包能否直接改写历史题目？','不能','可以随时改','只能学生改','只在考试中改','A','发布后使用题目快照，避免影响历史答卷。',1,4),
+('模拟考试','重复提交已完成答卷应如何处理？','返回原成绩','重新随机判分','生成新答卷','删除历史答卷','A','重复提交应保持幂等并返回原结果。',1,4),
+('模拟考试','答卷判分应由谁计算？','后端系统','前端浏览器','学员本人','教练手工输入','A','前端提交的分数不可信，判分由后端完成。',1,4),
+('退学退费','提交退学申请后，应如何处理未来预约？','取消未来预约','继续保持预约','自动完成预约','转给其他学员但不记录','A','退学后不应继续新增或保留未来训练。',1,4),
+('退学退费','退费金额最高不能超过什么？','实际已缴金额','套餐标价两倍','任意金额','教练决定金额','A','退款不得超过实际缴费。',1,4),
+('退学退费','退学后历史缴费和训练记录应如何处理？','保留历史','全部删除','改成匿名后删除','只保留退款','A','历史记录用于后续查询和复核。',1,4),
+('退学退费','退费核定主要由哪个角色完成？','教务','学员','教练','管理员随意完成','A','教务根据业务情况核定退费方案。',1,4),
+('退学退费','实际退款登记主要由哪个角色完成？','财务','学员','教练','访客','A','财务登记实际退款金额和凭证。',1,4),
+('综合安全','车辆起步前应当先检查什么？','周边环境和车门状态','车内音乐','手机电量','后备箱装饰','A','起步前应确认周边安全和车辆状态。',1,4),
+('综合安全','倒车时应当怎样观察？','通过后视镜并必要时回头观察','只看中控屏','只按喇叭','闭眼操作','A','倒车应持续观察车辆后方及两侧。',1,4),
+('综合安全','通过窄路会车时，正确做法是？','减速并确认能安全通过','加速抢行','占用人行道','关闭后视镜','A','窄路会车需控制速度和横向距离。',1,4),
+('综合安全','车辆临近铁路道口时，正确做法是？','按信号观察通行','加速闯过','停在轨道上','倒车掉头','A','铁路道口应严格遵守信号并确认安全。',1,4),
+('综合安全','行驶中前车突然制动时，驾驶人应优先怎样做？','保持安全距离并平稳制动','急打方向绕过','紧跟不刹车','关闭发动机','A','安全距离为应对突发情况提供制动空间。',1,4),
+('综合安全','发现车辆仪表出现故障警示时，应当怎样做？','根据警示安全检查处理','忽略继续高速行驶','用胶带遮住警示灯','立即加速','A','警示灯提示车辆可能存在异常，应及时处理。',1,4),
+('综合安全','驾车通过积水路段后，应当注意什么？','轻踩制动确认制动效果','立即高速行驶','关闭雨刷','不再观察车辆','A','涉水后可轻踩制动排除水分并确认效果。',1,4),
+('综合安全','遇大风天气驾驶车辆时，应当怎样做？','握稳方向盘并降低车速','高速超车','随意开门','关闭安全带','A','大风会影响车辆稳定性，应稳握方向盘。',1,4),
+('综合安全','长时间驾驶后感到注意力下降，应当怎样做？','选择安全地点休息','继续赶路','用手机聊天提神','加速行驶','A','休息可降低疲劳驾驶风险。',1,4),
+('综合安全','驾驶人发现道路结冰标志时，正确做法是？','减速并避免急操作','猛踩制动测试','快速转弯','贴近前车','A','结冰路面附着力低，应平稳驾驶。',1,4),
+('综合安全','在弯道内行驶时，应当怎样控制车速？','进入弯道前减速','弯道中突然加速','占用对向车道','随意停车','A','应在入弯前降低到安全速度。',1,4),
+('综合安全','发生轻微剐蹭后仍能移动车辆时，应首先确保什么？','不妨碍交通和现场安全','立即争执','阻塞车道拍照','继续加速离开','A','应按规定保障安全并避免长时间阻塞交通。',1,4),
+('综合安全','驾驶人通过路口时为什么不能只看信号灯？','还要观察道路参与者','信号灯从不重要','只要鸣笛即可','导航会替代观察','A','信号放行不等于周边绝对无风险。',1,4),
+('综合安全','安全跟车距离应随什么因素调整？','车速和路面情况','音乐类型','车身颜色','乘客人数','A','速度越高或路面越滑，需要更大距离。',1,4),
+('综合安全','遇行人正在通过道路时，正确做法是？','减速让行','加速从前方穿过','鸣笛催促','占用非机动车道绕行','A','驾驶人应注意并礼让行人。',1,4),
+('综合安全','驾驶车辆前饮用影响反应能力的药物后，应当怎样做？','避免驾驶或先咨询专业意见','照常高速驾驶','用咖啡完全替代休息','连续鸣笛','A','可能影响反应能力时不应冒险驾驶。',1,4),
+('综合安全','下坡跟车时应当怎样做？','增加跟车距离并控制车速','紧贴前车','空挡滑行','频繁变道','A','下坡制动距离增加，应预留更大空间。',1,4),
+('综合安全','行驶中发现车辆跑偏时，应当怎样做？','安全减速后检查','高速继续行驶','急转方向盘','忽略问题','A','跑偏可能影响操纵，应及时检查。',1,4),
+('综合安全','驾驶人接近盲区较大的车辆时，应当怎样做？','避免长时间停留在盲区','紧贴其侧面','突然插入前方','关闭灯光','A','应尽快安全通过或保持可见位置。',1,4),
+('综合安全','通过没有照明的道路时，正确做法是？','降低速度并注意观察','高速行驶','关闭车灯','只看导航','A','视距受限时必须降低速度。',1,4),
+('综合安全','车辆停放后离开前，应当怎样做？','拉紧驻车制动并确认安全','不熄火离开','不关车门','停在车道中央','A','停车离开前应防止车辆溜动。',1,4);
+
+INSERT INTO mock_exam (exam_id, exam_name, question_count, duration_minutes, pass_score, status, submitted_by, reviewed_by, reviewed_at, review_note, published_at) VALUES
+(1,'C1理论模拟练习（教学示例）',20,20,90,'PUBLISHED',4,2,'2026-09-16 10:00:00','题目数量满足练习要求','2026-09-16 10:30:00');
+
+-- 考试题目快照
+INSERT INTO mock_exam_question
+(exam_id, question_id, position_no, stem_snapshot, option_a_snapshot, option_b_snapshot, option_c_snapshot, option_d_snapshot, correct_option_snapshot, explanation_snapshot)
+SELECT 1, question_id, question_id, stem, option_a, option_b, option_c, option_d, correct_option, explanation
+FROM question_bank
+WHERE question_id BETWEEN 1 AND 100
+ORDER BY question_id;
+
+
+-- 04_verify.sql
+
+-- 验证查询
+USE driving_school;
+
+-- 表数量
+SELECT COUNT(*) AS expected_table_count_22
+FROM information_schema.tables
+WHERE table_schema = 'driving_school' AND table_type = 'BASE TABLE';
+
+-- 角色
+SELECT COUNT(*) AS expected_role_count_5 FROM role;
+SELECT ua.username, COUNT(ur.role_id) AS role_count
+FROM user_account ua JOIN user_role ur ON ua.user_id = ur.user_id
+GROUP BY ua.user_id, ua.username HAVING COUNT(ur.role_id) > 1;
+
+-- 题库与快照
+SELECT COUNT(*) AS expected_enabled_question_count_100 FROM question_bank WHERE enabled = 1;
+SELECT me.exam_name, COUNT(meq.exam_question_id) AS expected_snapshot_count_100
+FROM mock_exam me LEFT JOIN mock_exam_question meq ON me.exam_id = meq.exam_id
+WHERE me.status = 'PUBLISHED'
+GROUP BY me.exam_id, me.exam_name;
+
+-- 答卷明细
+SELECT ea.attempt_id, COUNT(eaa.answer_id) AS answer_count, COUNT(DISTINCT eaa.exam_question_id) AS distinct_question_count
+FROM exam_attempt ea LEFT JOIN exam_attempt_answer eaa ON ea.attempt_id = eaa.attempt_id
+WHERE ea.attempt_status = 'SUBMITTED'
+GROUP BY ea.attempt_id
+HAVING COUNT(eaa.answer_id) <> 20 OR COUNT(DISTINCT eaa.exam_question_id) <> 20;
+
+-- 答卷得分
+SELECT ea.attempt_id, ea.score, COALESCE(SUM(eaa.score_awarded),0) AS detail_score
+FROM exam_attempt ea LEFT JOIN exam_attempt_answer eaa ON ea.attempt_id = eaa.attempt_id
+WHERE ea.attempt_status = 'SUBMITTED'
+GROUP BY ea.attempt_id, ea.score
+HAVING ea.score <> COALESCE(SUM(eaa.score_awarded),0);
+
+-- 培训学时
+SELECT record_id, valid_hours FROM training_record WHERE record_status = 'COMPLETED' AND valid_hours < 0;
+
+-- 退款金额
+SELECT wr.withdrawal_id, rr.refund_amount, COALESCE(SUM(pr.payment_amount),0) AS paid_amount
+FROM withdrawal_request wr
+JOIN refund_record rr ON rr.withdrawal_id = wr.withdrawal_id AND rr.refund_status = 'SUCCESS'
+JOIN enrollment e ON e.student_id = wr.student_id
+LEFT JOIN payment_record pr ON pr.enrollment_id = e.enrollment_id AND pr.payment_status = 'SUCCESS'
+GROUP BY wr.withdrawal_id, rr.refund_amount
+HAVING rr.refund_amount > COALESCE(SUM(pr.payment_amount),0);
+
+-- 资源冲突
+SELECT s.slot_id, a.coach_id, a.vehicle_id, COUNT(*) AS assignment_count
+FROM training_assignment a
+JOIN training_booking b ON b.booking_id = a.booking_id
+JOIN training_slot s ON s.slot_id = b.slot_id
+WHERE a.assignment_status = 'ASSIGNED'
+GROUP BY s.slot_id, a.coach_id, a.vehicle_id
+HAVING COUNT(*) > 1;
+

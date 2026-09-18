@@ -1,0 +1,15 @@
+# Local IDE and build output
+.idea/
+.vscode/
+target/
+*.class
+*.log
+
+# Local configuration and secrets
+application-local.yml
+application-local.properties
+.env
+
+# Office temporary files
+~$*.docx
+
