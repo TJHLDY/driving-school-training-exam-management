@@ -22,7 +22,7 @@ docs/      作业 1 设计基线、协作约定与当前 Word 作业
 diagrams/  可编辑 Draw.io 图和 PNG 图
 ```
 
-E-R 图在 `diagrams/overall-er.drawio` 中同时提供整体图和五个模块分图；Word 使用 `diagrams/er/` 中的分图排版。同名实体代表同一张表，连线和基数按当前 SQL 核对。
+E-R 图在 `diagrams/overall-er.drawio` 中同时提供整体图和五个模块分图；Word 包含综合总览和各模块详图。同名实体代表同一张表，连线和基数按当前 SQL 核对。
 
 ## 数据库导入
 
@@ -34,7 +34,7 @@ SOURCE <仓库绝对路径>/database/all.sql;
 
 或按顺序执行 `01_schema.sql`、`02_base_seed.sql`、`03_questions_seed.sql`、`04_verify.sql`。脚本会使用数据库 `driving_school`，导入前请确认它不是已有业务数据。
 
-目前 SQL 已完成静态检查，尚待真实 MySQL 环境导入验证；演示密码和退款样例的待处理项见协作约定。
+目前 SQL 已完成静态检查，尚待真实 MySQL 环境导入验证；演示密码的待处理项见协作约定。退款样例状态已同步修正；已导入旧版的开发库可执行 `database/migrations/20260918_fix_demo_refund.sql`，新建库只需导入最新 `all.sql`。
 
 ## 协作约定
 

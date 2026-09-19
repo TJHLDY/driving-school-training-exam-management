@@ -352,7 +352,7 @@ INSERT INTO user_role (user_id, role_id) VALUES
 INSERT INTO student_profile (student_id, user_id, id_card_no, gender, birth_date, enrollment_status) VALUES
 (1,6,'110101200401010011','男','2004-01-01','ACTIVE'),
 (2,7,'110101200402020022','女','2004-02-02','PENDING'),
-(3,8,'110101200403030033','男','2004-03-03','ACTIVE');
+(3,8,'110101200403030033','男','2004-03-03','WITHDRAWN');
 
 INSERT INTO coach_profile (coach_id, user_id, coach_no, license_type, employment_status) VALUES
 (1,4,'C001','C1','ACTIVE'),
@@ -369,7 +369,7 @@ INSERT INTO training_package (package_id, package_code, package_name, price, pla
 INSERT INTO enrollment (enrollment_id, student_id, package_id, submitted_at, status, reviewed_by, reviewed_at, review_note, required_amount, active_at) VALUES
 (1,1,1,'2026-09-01 09:00:00','ACTIVE',2,'2026-09-01 10:00:00','资料齐全',3000.00,'2026-09-01 14:00:00'),
 (2,2,2,'2026-09-15 09:00:00','SUBMITTED',NULL,NULL,NULL,3800.00,NULL),
-(3,3,1,'2026-09-02 09:00:00','ACTIVE',2,'2026-09-02 10:00:00','资料齐全',3000.00,'2026-09-02 14:00:00');
+(3,3,1,'2026-09-02 09:00:00','WITHDRAWN',2,'2026-09-02 10:00:00','资料齐全',3000.00,'2026-09-02 14:00:00');
 
 INSERT INTO payment_record (payment_id, enrollment_id, received_by, payment_amount, payment_method, voucher_no, paid_at, payment_status) VALUES
 (1,1,3,3000.00,'CASH','PAY-20260901-001','2026-09-01 13:30:00','SUCCESS'),
@@ -391,7 +391,7 @@ INSERT INTO training_record (record_id, assignment_id, recorded_by, actual_start
 (1,1,4,'2026-09-10 09:00:00','2026-09-10 11:00:00',2.0,'COMPLETED','倒车入库练习完成');
 
 INSERT INTO withdrawal_request (withdrawal_id, student_id, reason, requested_at, status, reviewed_by, reviewed_at, review_note, approved_refund_amount) VALUES
-(1,3,'个人时间安排变化','2026-09-12 09:00:00','APPROVED',2,'2026-09-13 10:00:00','扣除已完成训练费用后退还余额',2600.00);
+(1,3,'个人时间安排变化','2026-09-12 09:00:00','REFUNDED',2,'2026-09-13 10:00:00','扣除已完成训练费用后退还余额',2600.00);
 
 INSERT INTO refund_record (refund_id, withdrawal_id, paid_by, refund_amount, refund_method, voucher_no, refunded_at, refund_status) VALUES
 (1,1,3,2600.00,'TRANSFER','REF-20260914-001','2026-09-14 11:00:00','SUCCESS');
