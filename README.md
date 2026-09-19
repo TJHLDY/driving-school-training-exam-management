@@ -2,7 +2,7 @@
 
 Java 项目开发与实践课程小组项目。
 
-当前仓库先保存作业 1 的设计基线、数据库脚本、用例图和 E-R 图，后续在此仓库共同完成实体层、Mapper、页面、Service、Controller 和整合测试。
+当前统一使用 **12 表简化版**，替代旧的 22 表设计。仓库保存作业 1、SQL、用例图和 E-R 图，后续在此共同完成实体、Mapper、页面、Service、Controller 和整合测试，当前不包含已完成的 Java 工程。
 
 ## 成员与分工
 
@@ -24,6 +24,8 @@ diagrams/  可编辑 Draw.io 图和 PNG 图
 
 E-R 图在 `diagrams/overall-er.drawio` 中同时提供整体图和五个模块分图；Word 包含综合总览和各模块详图。同名实体代表同一张表，连线和基数按当前 SQL 核对。
 
+当前作业文档：[作业 1（12 表版）](docs/组长241548153_谭卓谦_作业01_12表简化版.docx)。字段与短用例见 [设计基线](docs/作业01内容基线.md)。`.drawio` 用 diagrams.net 网站的“从设备打开”载入。
+
 ## 数据库导入
 
 在独立的 MySQL 开发环境执行以下一种方式：
@@ -32,9 +34,11 @@ E-R 图在 `diagrams/overall-er.drawio` 中同时提供整体图和五个模块�
 SOURCE <仓库绝对路径>/database/all.sql;
 ```
 
-或按顺序执行 `01_schema.sql`、`02_base_seed.sql`、`03_questions_seed.sql`、`04_verify.sql`。脚本会使用数据库 `driving_school`，导入前请确认它不是已有业务数据。
+或按顺序执行 `01_schema.sql`、`02_base_seed.sql`、`03_questions_seed.sql`、`04_verify.sql`，两种方式二选一。使用 MySQL 8.0.16 或以上。脚本新建独立数据库 `driving_school_v12`，不删除旧库；已有同名库时报错，必须停止并确认情况，不可忽略错误继续执行。
 
-目前 SQL 已完成静态检查，尚待真实 MySQL 环境导入验证；演示密码的待处理项见协作约定。退款样例状态已同步修正；已导入旧版的开发库可执行 `database/migrations/20260918_fix_demo_refund.sql`，新建库只需导入最新 `all.sql`。
+已在隔离 MySQL 8.4.7 实例完成真实导入，核对 12 张表、5 种角色、100 道教学演示题及答卷、退款样例，8 项非法写入测试通过。演示账号及密码见协作约定。尚未实现的页面、Service 和并发流程需在后续开发中测试。
+
+旧版资料和 SQL 可在 Git 历史中恢复，不再作为当前开发依据；不将旧版迁移脚本用于新库。
 
 ## 协作约定
 

@@ -1,55 +1,23 @@
--- 验证查询
-USE driving_school;
+USE driving_school_v12;
 
 -- 表数量
-SELECT COUNT(*) AS expected_table_count_22
-FROM information_schema.tables
-WHERE table_schema = 'driving_school' AND table_type = 'BASE TABLE';
-
--- 角色
-SELECT COUNT(*) AS expected_role_count_5 FROM role;
-SELECT ua.username, COUNT(ur.role_id) AS role_count
-FROM user_account ua JOIN user_role ur ON ua.user_id = ur.user_id
-GROUP BY ua.user_id, ua.username HAVING COUNT(ur.role_id) > 1;
-
--- 题库与快照
-SELECT COUNT(*) AS expected_enabled_question_count_100 FROM question_bank WHERE enabled = 1;
-SELECT me.exam_name, COUNT(meq.exam_question_id) AS expected_snapshot_count_100
-FROM mock_exam me LEFT JOIN mock_exam_question meq ON me.exam_id = meq.exam_id
-WHERE me.status = 'PUBLISHED'
-GROUP BY me.exam_id, me.exam_name;
-
--- 答卷明细
-SELECT ea.attempt_id, COUNT(eaa.answer_id) AS answer_count, COUNT(DISTINCT eaa.exam_question_id) AS distinct_question_count
-FROM exam_attempt ea LEFT JOIN exam_attempt_answer eaa ON ea.attempt_id = eaa.attempt_id
-WHERE ea.attempt_status = 'SUBMITTED'
-GROUP BY ea.attempt_id
-HAVING COUNT(eaa.answer_id) <> 20 OR COUNT(DISTINCT eaa.exam_question_id) <> 20;
-
--- 答卷得分
-SELECT ea.attempt_id, ea.score, COALESCE(SUM(eaa.score_awarded),0) AS detail_score
-FROM exam_attempt ea LEFT JOIN exam_attempt_answer eaa ON ea.attempt_id = eaa.attempt_id
-WHERE ea.attempt_status = 'SUBMITTED'
-GROUP BY ea.attempt_id, ea.score
-HAVING ea.score <> COALESCE(SUM(eaa.score_awarded),0);
-
--- 培训学时
-SELECT record_id, valid_hours FROM training_record WHERE record_status = 'COMPLETED' AND valid_hours < 0;
-
--- 退款金额
-SELECT wr.withdrawal_id, rr.refund_amount, COALESCE(SUM(pr.payment_amount),0) AS paid_amount
-FROM withdrawal_request wr
-JOIN refund_record rr ON rr.withdrawal_id = wr.withdrawal_id AND rr.refund_status = 'SUCCESS'
-JOIN enrollment e ON e.student_id = wr.student_id
-LEFT JOIN payment_record pr ON pr.enrollment_id = e.enrollment_id AND pr.payment_status = 'SUCCESS'
-GROUP BY wr.withdrawal_id, rr.refund_amount
-HAVING rr.refund_amount > COALESCE(SUM(pr.payment_amount),0);
-
--- 资源冲突
-SELECT s.slot_id, a.coach_id, a.vehicle_id, COUNT(*) AS assignment_count
-FROM training_assignment a
-JOIN training_booking b ON b.booking_id = a.booking_id
-JOIN training_slot s ON s.slot_id = b.slot_id
-WHERE a.assignment_status = 'ASSIGNED'
-GROUP BY s.slot_id, a.coach_id, a.vehicle_id
-HAVING COUNT(*) > 1;
+SELECT COUNT(*) AS table_count FROM information_schema.tables WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE';
+-- 角色数量
+SELECT COUNT(*) AS role_count FROM role;
+-- 题目数量
+SELECT COUNT(*) AS question_count FROM question_bank WHERE exam_id = 1 AND enabled = 1;
+-- 答卷题数和分数
+SELECT a.attempt_id, COUNT(d.answer_id) AS answer_count, SUM(d.score_awarded) AS detail_score, a.score
+FROM exam_attempt a LEFT JOIN exam_answer d ON d.attempt_id=a.attempt_id GROUP BY a.attempt_id;
+-- 跨考试错误题目
+SELECT COUNT(*) AS invalid_exam_question FROM exam_answer d JOIN exam_attempt a ON a.attempt_id=d.attempt_id JOIN question_bank q ON q.question_id=d.question_id WHERE q.exam_id<>a.exam_id;
+-- 退款与报名状态
+SELECT COUNT(*) AS invalid_refund FROM withdrawal_request w JOIN enrollment e ON e.enrollment_id=w.enrollment_id
+WHERE w.approved_refund_amount>e.paid_amount OR (w.status='REFUNDED' AND (e.status<>'WITHDRAWN' OR w.refund_amount<>w.approved_refund_amount));
+-- 培训资源冲突
+SELECT COUNT(*) AS training_conflicts FROM training_booking a JOIN training_booking b ON a.booking_id<b.booking_id
+AND a.planned_start<b.planned_end AND b.planned_start<a.planned_end
+WHERE a.status IN ('PENDING','ASSIGNED','COMPLETED') AND b.status IN ('PENDING','ASSIGNED','COMPLETED')
+AND (a.student_user_id=b.student_user_id OR a.coach_user_id=b.coach_user_id OR a.vehicle_id=b.vehicle_id);
+-- 多角色菜单
+SELECT DISTINCT m.route_path FROM user_role ur JOIN menu m ON m.role_id=ur.role_id WHERE ur.user_id=2 AND m.enabled=1 ORDER BY m.route_path;
