@@ -46,3 +46,50 @@ SOURCE <仓库绝对路径>/database/all.sql;
 - 结构、字段、状态、接口语义改变时，先在组内说明，再同步 SQL、设计文档和代码。
 - 不提交个人数据库密码、Token 或 IDE 临时文件。
 - 截图、演示和报告只使用真实运行结果。
+
+## 后端工程（JDK 17）
+
+当前仓库已建立 Spring Boot 后端，根包为 `com.example.drivingschool`，包含 `entity`、`mapper`、`service`、`controller`、`dto`、`config` 目录。数据库仍以 `database/01_schema.sql` 为准，不修改 12 表设计。
+
+技术依赖固定在 `pom.xml`：Spring Boot 3.3.5、Java 17、Spring Security、MyBatis XML、MySQL 8、JJWT 0.12.6、BCrypt。
+
+### 启动
+
+1. 按 README 原有说明导入 `database/all.sql`。
+2. 设置数据库环境变量，未设置时使用本机 `root` 和空密码：
+
+```powershell
+$env:DB_URL="jdbc:mysql://localhost:3306/driving_school_v12?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false"
+$env:DB_USERNAME="root"
+$env:DB_PASSWORD="你的本地密码"
+$env:JWT_SECRET="至少32字节的本地随机密钥"
+```
+
+3. 编译、测试和启动：
+
+```powershell
+mvn clean test
+mvn spring-boot:run
+```
+
+生产或共享环境必须设置 `JWT_SECRET`，并将 `JWT_COOKIE_SECURE=true` 配合 HTTPS。未设置 secret 时进程会生成仅本次启动有效的随机密钥，重启后旧登录失效。
+
+### 登录与 CSRF
+
+1. `GET /api/auth/csrf`，同时保存响应的 `XSRF-TOKEN` Cookie 和 JSON 中的 token。
+2. `POST /api/auth/login`，带 `X-XSRF-TOKEN` 与 `Content-Type: application/json`。
+3. 登录成功后服务端设置 HttpOnly、SameSite=Strict 的 `access_token` Cookie。
+4. 后续 POST、PUT、DELETE 请求继续带 `X-XSRF-TOKEN`。
+
+密码使用 BCrypt 12 轮哈希存储；JWT 只保存用户标识，每次请求重新读取账号和角色，停用账号、角色变更立即生效。
+
+### 已覆盖功能
+
+- 账号注册、登录、退出、账号/角色/菜单维护，菜单按 `route_path` 去重。
+- 报名提交、驳回重提、教务审核、财务一次全额缴费。
+- 车辆、开放时段、学员认领、资源分配、取消、教练登记结果和累计学时。
+- 教练考试任务与题库、教务审核发布、随机 20 题、保存答案、超时结算、判分与解析权限。
+- 退学申请、未来预约取消、教务核定、财务一次退款和报名转 WITHDRAWN。
+- 关键状态条件更新、行锁、跨表归属检查和时间冲突检查。
+
+完整接口表见 [api_contract.md](api_contract.md)。
