@@ -110,12 +110,13 @@ class BusinessModuleMapperTest {
     }
 
     @Test
-    @DisplayName("可认领时段是 OPEN 且未开始的 2 条")
+    @DisplayName("可认领时段只返回 OPEN 且未开始、且还没有学员的记录")
     void openSlots() {
-        List<TrainingBooking> slots = bookingMapper.selectOpenSlots(LocalDateTime.of(2026, 9, 20, 0, 0));
-        assertThat(slots).hasSize(2);
+        List<TrainingBooking> slots = bookingMapper.selectOpenSlots(LocalDateTime.now());
+        // 不写死条数：演示过程中时段可能被认领完，这里只校验筛选规则
         assertThat(slots).allMatch(s -> "OPEN".equals(s.getStatus()));
         assertThat(slots).allMatch(s -> s.getStudentUserId() == null);
+        assertThat(slots).allMatch(s -> s.getPlannedStart().isAfter(LocalDateTime.now().minusMinutes(1)));
         // 已完成的记录不会再出现在可认领列表里
         assertThat(slots).extracting(TrainingBooking::getBookingId).doesNotContain(1L);
     }
@@ -139,7 +140,13 @@ class BusinessModuleMapperTest {
     @Transactional
     @DisplayName("认领时段是条件更新，抢过的时段返回 0")
     void claimOpenSlot() {
-        TrainingBooking slot = bookingMapper.selectOpenSlots(LocalDateTime.of(2026, 9, 20, 0, 0)).get(0);
+        // 自己造一个未来时段来测，不依赖库里已有的数据（事务结束会回滚）
+        TrainingBooking slot = new TrainingBooking();
+        slot.setPlannedStart(LocalDateTime.now().plusDays(30));
+        slot.setPlannedEnd(LocalDateTime.now().plusDays(30).plusHours(2));
+        slot.setLocation("冲突测试场");
+        slot.setCreatedBy(2L);
+        bookingMapper.insertOpenSlot(slot);
 
         assertThat(bookingMapper.claimOpenSlot(slot.getBookingId(), 6L)).isEqualTo(1);
         assertThat(bookingMapper.selectById(slot.getBookingId()).getStatus()).isEqualTo("PENDING");
@@ -150,7 +157,8 @@ class BusinessModuleMapperTest {
     @Test
     @DisplayName("题库属于考试任务，随机抽 20 题不重复")
     void questions() {
-        assertThat(questionMapper.countEnabledByExamId(1L)).isEqualTo(100);
+        // 至少够抽 20 题即可，不写死 100（教练可能继续加题）
+        assertThat(questionMapper.countEnabledByExamId(1L)).isGreaterThanOrEqualTo(20);
 
         List<QuestionBank> drawn = questionMapper.selectRandomByExamId(1L, 20);
         assertThat(drawn).hasSize(20);
@@ -204,10 +212,11 @@ class BusinessModuleMapperTest {
     @Test
     @DisplayName("考试任务状态与发布查询")
     void examStatus() {
-        assertThat(examMapper.selectPublished()).hasSize(1);
+        assertThat(examMapper.selectPublished()).isNotEmpty();
         assertThat(examMapper.selectById(1L).getQuestionCount()).isEqualTo(20);
         assertThat(examMapper.selectById(1L).getPassScore()).isEqualTo(90);
-        assertThat(examMapper.countAttemptReference(1L)).isEqualTo(1);
+        // 学员考试后会新增答卷，这里只校验确实有引用
+        assertThat(examMapper.countAttemptReference(1L)).isGreaterThanOrEqualTo(1);
     }
 
     @Test

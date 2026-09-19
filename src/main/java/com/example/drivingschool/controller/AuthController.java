@@ -1,10 +1,14 @@
 package com.example.drivingschool.controller;
 import com.example.drivingschool.config.SessionUser;
+import com.example.drivingschool.config.JwtUtil;
+import com.example.drivingschool.config.LoginInterceptor;
 import com.example.drivingschool.entity.Role;
 import com.example.drivingschool.entity.UserAccount;
 import com.example.drivingschool.mapper.RoleMapper;
 import com.example.drivingschool.mapper.UserAccountMapper;
 import com.example.drivingschool.mapper.UserRoleMapper;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -22,13 +26,14 @@ public class AuthController {
     @Autowired private RoleMapper roleMapper;
     @Autowired private UserRoleMapper userRoleMapper;
     @Autowired private BCryptPasswordEncoder passwordEncoder;
+    @Autowired private JwtUtil jwtUtil;
     @GetMapping("/login")
     public String loginPage() {
         return "login";
     }
     @PostMapping("/login")
     public String login(@RequestParam String username, @RequestParam String password,
-                        HttpSession session, Model model) {
+                        HttpSession session, HttpServletResponse response, Model model) {
         UserAccount account = userAccountMapper.selectByUsername(username);
         if (account == null || !passwordEncoder.matches(password, account.getPasswordHash())) {
             model.addAttribute("error", "用户名或密码错误");
@@ -43,6 +48,15 @@ public class AuthController {
         String names = roles.stream().map(Role::getRoleName).collect(Collectors.joining(" / "));
         session.setAttribute("loginUser", new SessionUser(account.getUserId(), account.getUsername(),
                 account.getRealName(), codes, names));
+
+        // 签发 JWT 放进 HttpOnly Cookie，有效期七天，实现七天免登录
+        String token = jwtUtil.generate(account.getUserId(), account.getUsername());
+        Cookie cookie = new Cookie(LoginInterceptor.TOKEN_COOKIE, token);
+        cookie.setHttpOnly(true);          // 前端脚本读不到，防止 XSS 偷令牌
+        cookie.setPath("/");
+        cookie.setMaxAge((int) (jwtUtil.getExpireMillis() / 1000));
+        cookie.setAttribute("SameSite", "Lax");   // 跨站请求不携带，缓解 CSRF
+        response.addCookie(cookie);
         return "redirect:/";
     }
     @GetMapping("/register")
@@ -87,8 +101,14 @@ public class AuthController {
         return "login";
     }
     @GetMapping("/logout")
-    public String logout(HttpSession session) {
+    public String logout(HttpSession session, HttpServletResponse response) {
         session.invalidate();
+        // 清掉浏览器里的令牌 Cookie
+        Cookie cookie = new Cookie(LoginInterceptor.TOKEN_COOKIE, "");
+        cookie.setPath("/");
+        cookie.setMaxAge(0);
+        cookie.setHttpOnly(true);
+        response.addCookie(cookie);
         return "redirect:/login";
     }
 }

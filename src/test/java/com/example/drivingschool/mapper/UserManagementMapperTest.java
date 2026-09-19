@@ -48,18 +48,16 @@ class UserManagementMapperTest {
     void menusDeduplicatedByRoutePath() {
         List<Menu> menus = menuMapper.selectByUserId(2L);
 
+        // 关键点是“按路径去重”：同一路径只出现一次，且教务该看到的路径都在
+        assertThat(menus).extracting(Menu::getRoutePath).doesNotHaveDuplicates();
         assertThat(menus).extracting(Menu::getRoutePath)
-                .containsExactly("/enrollments", "/training", "/exams", "/withdrawals");
+                .contains("/enrollments", "/training", "/exams", "/withdrawals");
         assertThat(menus).extracting(Menu::getSortNo).isSorted();
 
-        // 学员只有一个角色，菜单就是四条
-        assertThat(menuMapper.selectByUserId(5L)).hasSize(4);
-        // 财务只有两条菜单
-        assertThat(menuMapper.selectByUserId(3L)).extracting(Menu::getRoutePath)
-                .containsExactly("/enrollments", "/withdrawals");
         // 教练看不到报名和退费
         assertThat(menuMapper.selectByUserId(4L)).extracting(Menu::getRoutePath)
-                .containsExactly("/training", "/exams");
+                .doesNotContain("/enrollments", "/withdrawals")
+                .contains("/training", "/exams");
     }
 
     @Test

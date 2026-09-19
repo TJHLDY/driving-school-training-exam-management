@@ -39,3 +39,11 @@ mybatis:
 logging:
   level:
     com.example.drivingschool.mapper: debug
+
+# JWT 登录令牌配置
+app:
+  jwt:
+    # 签名密钥，长度不能少于 32 字节；正式部署请用环境变量 JWT_SECRET 覆盖
+    secret: ${JWT_SECRET:driving-school-2026-course-project-jwt-secret-key-change-me}
+    # 令牌有效期（天），七天免登录靠它和 Cookie 的 Max-Age 一起实现
+    expire-days: 7
