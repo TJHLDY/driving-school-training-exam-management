@@ -22,6 +22,8 @@ docs/      作业 1 设计基线、协作约定与当前 Word 作业
 diagrams/  可编辑 Draw.io 图和 PNG 图
 ```
 
+E-R 图在 `diagrams/overall-er.drawio` 中同时提供整体图和五个模块分图；Word 使用 `diagrams/er/` 中的分图排版。同名实体代表同一张表，连线和基数按当前 SQL 核对。
+
 ## 数据库导入
 
 在独立的 MySQL 开发环境执行以下一种方式：
@@ -40,4 +42,3 @@ SOURCE <仓库绝对路径>/database/all.sql;
 - 结构、字段、状态、接口语义改变时，先在组内说明，再同步 SQL、设计文档和代码。
 - 不提交个人数据库密码、Token 或 IDE 临时文件。
 - 截图、演示和报告只使用真实运行结果。
-
