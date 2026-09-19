@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.drivingschool.mapper.EnrollmentMapper">
+
+    <resultMap id="enrollmentMap" type="Enrollment">
+        <id property="enrollmentId" column="enrollment_id"/>
+        <result property="studentUserId" column="student_user_id"/>
+        <result property="licenseType" column="license_type"/>
+        <result property="requiredAmount" column="required_amount"/>
+        <result property="plannedHours" column="planned_hours"/>
+        <result property="status" column="status"/>
+        <result property="submittedAt" column="submitted_at"/>
+        <result property="reviewedBy" column="reviewed_by"/>
+        <result property="reviewedAt" column="reviewed_at"/>
+        <result property="reviewNote" column="review_note"/>
+        <result property="paidAmount" column="paid_amount"/>
+        <result property="paymentMethod" column="payment_method"/>
+        <result property="paymentVoucher" column="payment_voucher"/>
+        <result property="paidBy" column="paid_by"/>
+        <result property="paidAt" column="paid_at"/>
+    </resultMap>
+
+    <sql id="columns">
+        enrollment_id,student_user_id,license_type,required_amount,planned_hours,status,submitted_at,
+        reviewed_by,reviewed_at,review_note,paid_amount,payment_method,payment_voucher,paid_by,paid_at
+    </sql>
+
+    <select id="findById" resultMap="enrollmentMap">
+        SELECT <include refid="columns"/> FROM enrollment WHERE enrollment_id = #{enrollmentId}
+    </select>
+
+    <select id="findByIdForUpdate" resultMap="enrollmentMap">
+        SELECT <include refid="columns"/> FROM enrollment WHERE enrollment_id = #{enrollmentId} FOR UPDATE
+    </select>
+
+    <select id="findByStudentUserId" resultMap="enrollmentMap">
+        SELECT <include refid="columns"/> FROM enrollment WHERE student_user_id = #{studentUserId}
+    </select>
+
+    <select id="findByStudentUserIdForUpdate" resultMap="enrollmentMap">
+        SELECT <include refid="columns"/> FROM enrollment WHERE student_user_id = #{studentUserId} FOR UPDATE
+    </select>
+
+    <insert id="insert" parameterType="Enrollment" useGeneratedKeys="true" keyProperty="enrollmentId">
+        INSERT INTO enrollment(student_user_id,license_type,required_amount,planned_hours,status,submitted_at)
+        VALUES (#{studentUserId},#{licenseType},#{requiredAmount},#{plannedHours},'SUBMITTED',#{submittedAt})
+    </insert>
+
+    <update id="updateStudentSubmission" parameterType="Enrollment">
+        UPDATE enrollment
+        SET license_type = #{licenseType}, required_amount = #{requiredAmount}, planned_hours = #{plannedHours},
+            status = 'SUBMITTED', submitted_at = #{submittedAt}, reviewed_by = NULL, reviewed_at = NULL,
+            review_note = NULL
+        WHERE enrollment_id = #{enrollmentId} AND status IN ('SUBMITTED','REJECTED')
+    </update>
+
+    <update id="review">
+        UPDATE enrollment
+        SET status = #{status},
+            <if test="status == 'APPROVED'">
+                required_amount = #{requiredAmount}, planned_hours = #{plannedHours},
+            </if>
+            reviewed_by = #{reviewedBy}, reviewed_at = #{reviewedAt}, review_note = #{reviewNote}
+        WHERE enrollment_id = #{enrollmentId} AND status = 'SUBMITTED'
+    </update>
+
+    <update id="pay">
+        UPDATE enrollment
+        SET paid_amount = #{paidAmount}, payment_method = #{paymentMethod}, payment_voucher = #{paymentVoucher},
+            paid_by = #{paidBy}, paid_at = #{paidAt}, status = 'ACTIVE'
+        WHERE enrollment_id = #{enrollmentId} AND status = 'APPROVED'
+    </update>
+
+    <update id="markWithdrawn">
+        UPDATE enrollment SET status = 'WITHDRAWN'
+        WHERE enrollment_id = #{enrollmentId} AND status = 'ACTIVE'
+    </update>
+
+    <select id="findPage" resultMap="enrollmentMap">
+        SELECT <include refid="columns"/>
+        FROM enrollment
+        <where>
+            <if test="studentUserId != null">student_user_id = #{studentUserId}</if>
+            <if test="status != null and status != ''">AND status = #{status}</if>
+        </where>
+        ORDER BY submitted_at DESC, enrollment_id DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <select id="count" resultType="long">
+        SELECT COUNT(*) FROM enrollment
+        <where>
+            <if test="studentUserId != null">student_user_id = #{studentUserId}</if>
+            <if test="status != null and status != ''">AND status = #{status}</if>
+        </where>
+    </select>
+</mapper>

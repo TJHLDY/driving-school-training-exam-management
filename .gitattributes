@@ -3,3 +3,8 @@
 *.drawio text eol=lf
 *.docx binary
 *.png binary
+
+*.java text eol=lf
+*.xml text eol=lf
+*.yml text eol=lf
+pom.xml text eol=lf

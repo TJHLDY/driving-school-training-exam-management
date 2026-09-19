@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.drivingschool.mapper.AccountMapper">
+
+    <resultMap id="userMap" type="UserAccount">
+        <id property="userId" column="user_id"/>
+        <result property="username" column="username"/>
+        <result property="passwordHash" column="password_hash"/>
+        <result property="realName" column="real_name"/>
+        <result property="phone" column="phone"/>
+        <result property="gender" column="gender"/>
+        <result property="idNumber" column="id_number"/>
+        <result property="coachLicense" column="coach_license"/>
+        <result property="enabled" column="enabled"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <resultMap id="roleMap" type="Role">
+        <id property="roleId" column="role_id"/>
+        <result property="roleCode" column="role_code"/>
+        <result property="roleName" column="role_name"/>
+    </resultMap>
+
+    <resultMap id="menuMap" type="Menu">
+        <id property="menuId" column="menu_id"/>
+        <result property="roleId" column="role_id"/>
+        <result property="menuCode" column="menu_code"/>
+        <result property="menuName" column="menu_name"/>
+        <result property="routePath" column="route_path"/>
+        <result property="sortNo" column="sort_no"/>
+        <result property="enabled" column="enabled"/>
+    </resultMap>
+
+    <sql id="userColumns">user_id,username,password_hash,real_name,phone,gender,id_number,coach_license,enabled,created_at</sql>
+
+    <select id="findById" resultMap="userMap">
+        SELECT <include refid="userColumns"/> FROM user_account WHERE user_id = #{userId}
+    </select>
+
+    <select id="findByIdForUpdate" resultMap="userMap">
+        SELECT <include refid="userColumns"/> FROM user_account WHERE user_id = #{userId} FOR UPDATE
+    </select>
+
+    <select id="findByUsername" resultMap="userMap">
+        SELECT <include refid="userColumns"/> FROM user_account WHERE username = #{username}
+    </select>
+
+    <select id="findRoleCodesByUserId" resultType="string">
+        SELECT r.role_code
+        FROM user_role ur
+        JOIN role r ON r.role_id = ur.role_id
+        WHERE ur.user_id = #{userId}
+        ORDER BY r.role_id
+    </select>
+
+    <select id="countUsersByRoleCode" resultType="long">
+        SELECT COUNT(*) FROM user_role ur JOIN role r ON r.role_id = ur.role_id WHERE r.role_code = #{roleCode}
+    </select>
+
+    <select id="findRoles" resultMap="roleMap">
+        SELECT role_id,role_code,role_name FROM role ORDER BY role_id
+    </select>
+
+    <select id="findRoleIdByCode" resultType="long">
+        SELECT role_id FROM role WHERE role_code = #{roleCode}
+    </select>
+
+    <select id="findMenusByUserId" resultMap="menuMap">
+        SELECT MIN(m.menu_id) AS menu_id,
+               CAST(0 AS SIGNED) AS role_id,
+               MIN(m.menu_code) AS menu_code,
+               MIN(m.menu_name) AS menu_name,
+               m.route_path,
+               MIN(m.sort_no) AS sort_no,
+               TRUE AS enabled
+        FROM user_role ur
+        JOIN menu m ON m.role_id = ur.role_id
+        WHERE ur.user_id = #{userId} AND m.enabled = TRUE
+        GROUP BY m.route_path
+        ORDER BY MIN(m.sort_no), m.route_path
+    </select>
+
+    <select id="findMenus" resultMap="menuMap">
+        SELECT menu_id,role_id,menu_code,menu_name,route_path,sort_no,enabled
+        FROM menu
+        ORDER BY role_id,sort_no,menu_id
+    </select>
+
+    <select id="findMenuById" resultMap="menuMap">
+        SELECT menu_id,role_id,menu_code,menu_name,route_path,sort_no,enabled
+        FROM menu WHERE menu_id = #{menuId}
+    </select>
+
+    <select id="findUsers" resultMap="userMap">
+        SELECT <include refid="userColumns"/>
+        FROM user_account
+        <where>
+            <if test="keyword != null and keyword != ''">
+                username LIKE CONCAT('%', #{keyword}, '%')
+                OR real_name LIKE CONCAT('%', #{keyword}, '%')
+                OR phone LIKE CONCAT('%', #{keyword}, '%')
+            </if>
+        </where>
+        ORDER BY created_at DESC, user_id DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <select id="countUsers" resultType="long">
+        SELECT COUNT(*) FROM user_account
+        <where>
+            <if test="keyword != null and keyword != ''">
+                username LIKE CONCAT('%', #{keyword}, '%')
+                OR real_name LIKE CONCAT('%', #{keyword}, '%')
+                OR phone LIKE CONCAT('%', #{keyword}, '%')
+            </if>
+        </where>
+    </select>
+
+    <insert id="insertUser" parameterType="UserAccount" useGeneratedKeys="true" keyProperty="userId">
+        INSERT INTO user_account(username,password_hash,real_name,phone,gender,id_number,coach_license,enabled)
+        VALUES (#{username},#{passwordHash},#{realName},#{phone},#{gender},#{idNumber},#{coachLicense},#{enabled})
+    </insert>
+
+    <update id="updateUser" parameterType="UserAccount">
+        UPDATE user_account
+        SET real_name = #{realName}, phone = #{phone}, gender = #{gender},
+            id_number = #{idNumber}, coach_license = #{coachLicense}
+        WHERE user_id = #{userId}
+    </update>
+
+    <update id="updatePassword">
+        UPDATE user_account SET password_hash = #{passwordHash} WHERE user_id = #{userId}
+    </update>
+
+    <update id="updateUserEnabled">
+        UPDATE user_account SET enabled = #{enabled} WHERE user_id = #{userId}
+    </update>
+
+    <delete id="deleteUserRoles">
+        DELETE FROM user_role WHERE user_id = #{userId}
+    </delete>
+
+    <insert id="insertUserRole">
+        INSERT INTO user_role(user_id,role_id) VALUES (#{userId},#{roleId})
+    </insert>
+
+    <insert id="insertRole" parameterType="Role" useGeneratedKeys="true" keyProperty="roleId">
+        INSERT INTO role(role_code,role_name) VALUES (#{roleCode},#{roleName})
+    </insert>
+
+    <update id="updateRole" parameterType="Role">
+        UPDATE role SET role_code = #{roleCode}, role_name = #{roleName} WHERE role_id = #{roleId}
+    </update>
+
+    <insert id="insertMenu" parameterType="Menu" useGeneratedKeys="true" keyProperty="menuId">
+        INSERT INTO menu(role_id,menu_code,menu_name,route_path,sort_no,enabled)
+        VALUES (#{roleId},#{menuCode},#{menuName},#{routePath},#{sortNo},#{enabled})
+    </insert>
+
+    <update id="updateMenu" parameterType="Menu">
+        UPDATE menu
+        SET role_id = #{roleId}, menu_code = #{menuCode}, menu_name = #{menuName},
+            route_path = #{routePath}, sort_no = #{sortNo}, enabled = #{enabled}
+        WHERE menu_id = #{menuId}
+    </update>
+</mapper>

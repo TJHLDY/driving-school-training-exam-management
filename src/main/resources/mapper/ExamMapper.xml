@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.drivingschool.mapper.ExamMapper">
+    <resultMap id="examMap" type="MockExam">
+        <id property="examId" column="exam_id"/><result property="examName" column="exam_name"/>
+        <result property="questionCount" column="question_count"/><result property="durationMinutes" column="duration_minutes"/>
+        <result property="passScore" column="pass_score"/><result property="status" column="status"/>
+        <result property="submittedBy" column="submitted_by"/><result property="reviewedBy" column="reviewed_by"/>
+        <result property="reviewedAt" column="reviewed_at"/><result property="reviewNote" column="review_note"/>
+        <result property="publishedAt" column="published_at"/>
+    </resultMap>
+    <resultMap id="questionMap" type="QuestionBank">
+        <id property="questionId" column="question_id"/><result property="examId" column="exam_id"/>
+        <result property="category" column="category"/><result property="stem" column="stem"/>
+        <result property="optionA" column="option_a"/><result property="optionB" column="option_b"/>
+        <result property="optionC" column="option_c"/><result property="optionD" column="option_d"/>
+        <result property="correctOption" column="correct_option"/><result property="explanation" column="explanation"/>
+        <result property="enabled" column="enabled"/>
+    </resultMap>
+    <resultMap id="attemptMap" type="ExamAttempt">
+        <id property="attemptId" column="attempt_id"/><result property="examId" column="exam_id"/>
+        <result property="studentUserId" column="student_user_id"/><result property="status" column="status"/>
+        <result property="startedAt" column="started_at"/><result property="deadlineAt" column="deadline_at"/>
+        <result property="submittedAt" column="submitted_at"/><result property="score" column="score"/>
+    </resultMap>
+    <resultMap id="answerMap" type="ExamAnswer">
+        <id property="answerId" column="answer_id"/><result property="attemptId" column="attempt_id"/>
+        <result property="questionId" column="question_id"/><result property="positionNo" column="position_no"/>
+        <result property="selectedOption" column="selected_option"/><result property="scoreAwarded" column="score_awarded"/>
+        <result property="answeredAt" column="answered_at"/>
+    </resultMap>
+    <resultMap id="attemptQuestionMap" type="com.example.drivingschool.dto.ExamQuestionView">
+        <result property="attemptId" column="attempt_id"/><result property="questionId" column="question_id"/>
+        <result property="positionNo" column="position_no"/><result property="category" column="category"/>
+        <result property="stem" column="stem"/><result property="optionA" column="option_a"/>
+        <result property="optionB" column="option_b"/><result property="optionC" column="option_c"/>
+        <result property="optionD" column="option_d"/><result property="selectedOption" column="selected_option"/>
+        <result property="scoreAwarded" column="score_awarded"/><result property="correctOption" column="correct_option"/>
+        <result property="explanation" column="explanation"/>
+    </resultMap>
+    <sql id="examColumns">exam_id,exam_name,question_count,duration_minutes,pass_score,status,submitted_by,reviewed_by,reviewed_at,review_note,published_at</sql>
+    <sql id="questionColumns">question_id,exam_id,category,stem,option_a,option_b,option_c,option_d,correct_option,explanation,enabled</sql>
+
+    <select id="findExamById" resultMap="examMap">SELECT <include refid="examColumns"/> FROM mock_exam WHERE exam_id = #{examId}</select>
+    <select id="findExamByIdForUpdate" resultMap="examMap">SELECT <include refid="examColumns"/> FROM mock_exam WHERE exam_id = #{examId} FOR UPDATE</select>
+    <insert id="insertExam" parameterType="MockExam" useGeneratedKeys="true" keyProperty="examId">
+        INSERT INTO mock_exam(exam_name,question_count,duration_minutes,pass_score,status,submitted_by)
+        VALUES (#{examName},20,20,90,'DRAFT',#{submittedBy})
+    </insert>
+    <update id="updateExam" parameterType="MockExam">
+        UPDATE mock_exam SET exam_name = #{examName} WHERE exam_id = #{examId} AND status IN ('DRAFT','REJECTED')
+    </update>
+    <update id="submitExam">
+        UPDATE mock_exam SET status = 'SUBMITTED', review_note = NULL
+        WHERE exam_id = #{examId} AND status IN ('DRAFT','REJECTED')
+    </update>
+    <update id="reviewExam">
+        UPDATE mock_exam SET status = #{status}, reviewed_by = #{reviewedBy}, reviewed_at = #{reviewedAt},
+            review_note = #{reviewNote}, published_at = #{publishedAt}
+        WHERE exam_id = #{examId} AND status = 'SUBMITTED'
+    </update>
+    <update id="closeExam">UPDATE mock_exam SET status = 'CLOSED' WHERE exam_id = #{examId} AND status = 'PUBLISHED'</update>
+    <select id="findExamPage" resultMap="examMap">
+        SELECT <include refid="examColumns"/> FROM mock_exam
+        <where><if test="submittedBy != null">submitted_by = #{submittedBy}</if><if test="status != null and status != ''">AND status = #{status}</if></where>
+        ORDER BY exam_id DESC LIMIT #{offset}, #{size}
+    </select>
+    <select id="countExams" resultType="long">
+        SELECT COUNT(*) FROM mock_exam
+        <where><if test="submittedBy != null">submitted_by = #{submittedBy}</if><if test="status != null and status != ''">AND status = #{status}</if></where>
+    </select>
+    <select id="findPublishedExamPage" resultMap="examMap">
+        SELECT <include refid="examColumns"/> FROM mock_exam WHERE status IN ('PUBLISHED','CLOSED')
+        ORDER BY published_at DESC, exam_id DESC LIMIT #{offset}, #{size}
+    </select>
+    <select id="countPublishedExams" resultType="long">
+        SELECT COUNT(*) FROM mock_exam WHERE status IN ('PUBLISHED','CLOSED')
+    </select>
+    <select id="findQuestionById" resultMap="questionMap">SELECT <include refid="questionColumns"/> FROM question_bank WHERE question_id = #{questionId}</select>
+    <insert id="insertQuestion" parameterType="QuestionBank" useGeneratedKeys="true" keyProperty="questionId">
+        INSERT INTO question_bank(exam_id,category,stem,option_a,option_b,option_c,option_d,correct_option,explanation,enabled)
+        VALUES (#{examId},#{category},#{stem},#{optionA},#{optionB},#{optionC},#{optionD},#{correctOption},#{explanation},#{enabled})
+    </insert>
+    <update id="updateQuestion" parameterType="QuestionBank">
+        UPDATE question_bank SET category = #{category}, stem = #{stem}, option_a = #{optionA}, option_b = #{optionB},
+            option_c = #{optionC}, option_d = #{optionD}, correct_option = #{correctOption},
+            explanation = #{explanation}, enabled = #{enabled}
+        WHERE question_id = #{questionId} AND exam_id = #{examId}
+    </update>
+    <update id="disableQuestion">UPDATE question_bank SET enabled = FALSE WHERE question_id = #{questionId}</update>
+    <select id="countEnabledQuestions" resultType="int">SELECT COUNT(*) FROM question_bank WHERE exam_id = #{examId} AND enabled = TRUE</select>
+    <select id="findEnabledQuestions" resultMap="questionMap">
+        SELECT <include refid="questionColumns"/> FROM question_bank WHERE exam_id = #{examId} AND enabled = TRUE ORDER BY question_id
+    </select>
+    <select id="findRandomQuestions" resultMap="questionMap">
+        SELECT <include refid="questionColumns"/> FROM question_bank WHERE exam_id = #{examId} AND enabled = TRUE ORDER BY RAND() LIMIT 20
+    </select>
+
+    <select id="findAttemptById" resultMap="attemptMap">
+        SELECT attempt_id,exam_id,student_user_id,status,started_at,deadline_at,submitted_at,score FROM exam_attempt WHERE attempt_id = #{attemptId}
+    </select>
+    <select id="findAttemptByIdForUpdate" resultMap="attemptMap">
+        SELECT attempt_id,exam_id,student_user_id,status,started_at,deadline_at,submitted_at,score FROM exam_attempt WHERE attempt_id = #{attemptId} FOR UPDATE
+    </select>
+    <select id="findAttemptByExamAndStudent" resultMap="attemptMap">
+        SELECT attempt_id,exam_id,student_user_id,status,started_at,deadline_at,submitted_at,score FROM exam_attempt
+        WHERE exam_id = #{examId} AND student_user_id = #{studentUserId}
+    </select>
+    <insert id="insertAttempt" parameterType="ExamAttempt" useGeneratedKeys="true" keyProperty="attemptId">
+        INSERT INTO exam_attempt(exam_id,student_user_id,status,started_at,deadline_at)
+        VALUES (#{examId},#{studentUserId},'IN_PROGRESS',#{startedAt},#{deadlineAt})
+    </insert>
+    <insert id="insertAnswer">
+        INSERT INTO exam_answer(attempt_id,question_id,position_no,score_awarded)
+        VALUES (#{attemptId},#{questionId},#{positionNo},0)
+    </insert>
+    <select id="findAnswer" resultMap="answerMap">
+        SELECT answer_id,attempt_id,question_id,position_no,selected_option,score_awarded,answered_at
+        FROM exam_answer WHERE attempt_id = #{attemptId} AND question_id = #{questionId}
+    </select>
+    <update id="saveAnswer">
+        UPDATE exam_answer SET selected_option = #{selectedOption}, answered_at = #{answeredAt}
+        WHERE attempt_id = #{attemptId} AND question_id = #{questionId}
+    </update>
+    <update id="gradeAnswers">
+        UPDATE exam_answer ea JOIN question_bank q ON q.question_id = ea.question_id
+        SET ea.score_awarded = CASE WHEN ea.selected_option = q.correct_option THEN 5 ELSE 0 END
+        WHERE ea.attempt_id = #{attemptId}
+    </update>
+    <select id="calculateScore" resultType="int">
+        SELECT COALESCE(SUM(CASE WHEN ea.selected_option = q.correct_option THEN 5 ELSE 0 END),0)
+        FROM exam_answer ea JOIN question_bank q ON q.question_id = ea.question_id WHERE ea.attempt_id = #{attemptId}
+    </select>
+    <update id="finishAttempt">
+        UPDATE exam_attempt SET status = #{status}, score = #{score}, submitted_at = #{submittedAt}
+        WHERE attempt_id = #{attemptId} AND status = 'IN_PROGRESS'
+    </update>
+    <select id="findAttemptQuestions" resultMap="attemptQuestionMap">
+        SELECT ea.attempt_id, ea.question_id, ea.position_no, ea.selected_option, ea.score_awarded,
+               q.category, q.stem, q.option_a, q.option_b, q.option_c, q.option_d, q.correct_option, q.explanation
+        FROM exam_answer ea JOIN question_bank q ON q.question_id = ea.question_id
+        WHERE ea.attempt_id = #{attemptId} ORDER BY ea.position_no
+    </select>
+</mapper>

@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.drivingschool.mapper.TrainingMapper">
+
+    <resultMap id="vehicleMap" type="TrainingVehicle">
+        <id property="vehicleId" column="vehicle_id"/>
+        <result property="plateNo" column="plate_no"/>
+        <result property="licenseType" column="license_type"/>
+        <result property="enabled" column="enabled"/>
+    </resultMap>
+
+    <resultMap id="bookingMap" type="TrainingBooking">
+        <id property="bookingId" column="booking_id"/>
+        <result property="studentUserId" column="student_user_id"/>
+        <result property="coachUserId" column="coach_user_id"/>
+        <result property="vehicleId" column="vehicle_id"/>
+        <result property="plannedStart" column="planned_start"/>
+        <result property="plannedEnd" column="planned_end"/>
+        <result property="location" column="location"/>
+        <result property="status" column="status"/>
+        <result property="createdBy" column="created_by"/>
+        <result property="requestedAt" column="requested_at"/>
+        <result property="assignedBy" column="assigned_by"/>
+        <result property="assignedAt" column="assigned_at"/>
+        <result property="actualStart" column="actual_start"/>
+        <result property="actualEnd" column="actual_end"/>
+        <result property="validHours" column="valid_hours"/>
+        <result property="resultNote" column="result_note"/>
+        <result property="cancelledAt" column="cancelled_at"/>
+    </resultMap>
+
+    <sql id="bookingColumns">
+        booking_id,student_user_id,coach_user_id,vehicle_id,planned_start,planned_end,location,status,created_by,
+        requested_at,assigned_by,assigned_at,actual_start,actual_end,valid_hours,result_note,cancelled_at
+    </sql>
+
+    <select id="findVehicles" resultMap="vehicleMap">
+        SELECT vehicle_id,plate_no,license_type,enabled FROM training_vehicle
+        <where><if test="enabled != null">enabled = #{enabled}</if></where>
+        ORDER BY vehicle_id
+    </select>
+
+    <select id="findVehicleById" resultMap="vehicleMap">
+        SELECT vehicle_id,plate_no,license_type,enabled FROM training_vehicle WHERE vehicle_id = #{vehicleId}
+    </select>
+
+    <select id="findVehicleByIdForUpdate" resultMap="vehicleMap">
+        SELECT vehicle_id,plate_no,license_type,enabled FROM training_vehicle WHERE vehicle_id = #{vehicleId} FOR UPDATE
+    </select>
+
+    <insert id="insertVehicle" parameterType="TrainingVehicle" useGeneratedKeys="true" keyProperty="vehicleId">
+        INSERT INTO training_vehicle(plate_no,license_type,enabled)
+        VALUES (#{plateNo},#{licenseType},#{enabled})
+    </insert>
+
+    <update id="updateVehicle" parameterType="TrainingVehicle">
+        UPDATE training_vehicle
+        SET plate_no = #{plateNo}, license_type = #{licenseType}, enabled = #{enabled}
+        WHERE vehicle_id = #{vehicleId}
+    </update>
+
+    <select id="findBookingById" resultMap="bookingMap">
+        SELECT <include refid="bookingColumns"/> FROM training_booking WHERE booking_id = #{bookingId}
+    </select>
+
+    <select id="findBookingByIdForUpdate" resultMap="bookingMap">
+        SELECT <include refid="bookingColumns"/> FROM training_booking WHERE booking_id = #{bookingId} FOR UPDATE
+    </select>
+
+    <insert id="insertOpenBooking" parameterType="TrainingBooking" useGeneratedKeys="true" keyProperty="bookingId">
+        INSERT INTO training_booking(planned_start,planned_end,location,status,created_by)
+        VALUES (#{plannedStart},#{plannedEnd},#{location},'OPEN',#{createdBy})
+    </insert>
+
+    <update id="claim">
+        UPDATE training_booking
+        SET student_user_id = #{studentUserId}, requested_at = #{requestedAt}, status = 'PENDING'
+        WHERE booking_id = #{bookingId} AND status = 'OPEN' AND student_user_id IS NULL
+    </update>
+
+    <update id="assign">
+        UPDATE training_booking
+        SET coach_user_id = #{coachUserId}, vehicle_id = #{vehicleId}, assigned_by = #{assignedBy},
+            assigned_at = #{assignedAt}, status = 'ASSIGNED'
+        WHERE booking_id = #{bookingId} AND status = 'PENDING'
+          AND coach_user_id IS NULL AND vehicle_id IS NULL
+    </update>
+
+    <update id="cancel">
+        UPDATE training_booking
+        SET status = 'CANCELLED', cancelled_at = #{cancelledAt}
+        WHERE booking_id = #{bookingId} AND status IN ('PENDING','ASSIGNED')
+    </update>
+
+    <update id="complete">
+        UPDATE training_booking
+        SET actual_start = #{actualStart}, actual_end = #{actualEnd}, valid_hours = #{validHours},
+            result_note = #{resultNote}, status = 'COMPLETED'
+        WHERE booking_id = #{bookingId} AND status = 'ASSIGNED'
+    </update>
+
+    <select id="countOverlaps" resultType="int">
+        SELECT COUNT(*)
+        FROM training_booking
+        WHERE status IN ('PENDING','ASSIGNED','COMPLETED')
+          AND planned_start &lt; #{plannedEnd}
+          AND planned_end &gt; #{plannedStart}
+          AND (
+            (#{studentUserId} IS NOT NULL AND student_user_id = #{studentUserId})
+            OR (#{coachUserId} IS NOT NULL AND coach_user_id = #{coachUserId})
+            OR (#{vehicleId} IS NOT NULL AND vehicle_id = #{vehicleId})
+          )
+        <if test="excludeBookingId != null">AND booking_id &lt;&gt; #{excludeBookingId}</if>
+    </select>
+
+    <update id="cancelFutureBookings">
+        UPDATE training_booking
+        SET status = 'CANCELLED', cancelled_at = #{now}
+        WHERE student_user_id = #{studentUserId}
+          AND status IN ('PENDING','ASSIGNED')
+          AND planned_start &gt; #{now}
+    </update>
+
+    <select id="countUnfinishedStarted" resultType="int">
+        SELECT COUNT(*) FROM training_booking
+        WHERE student_user_id = #{studentUserId}
+          AND status IN ('PENDING','ASSIGNED')
+          AND planned_start &lt;= #{now}
+          AND planned_end &gt; #{now}
+    </select>
+
+    <select id="sumCompletedHours" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(valid_hours),0.00) FROM training_booking
+        WHERE student_user_id = #{studentUserId} AND status = 'COMPLETED'
+    </select>
+
+    <select id="findPage" resultMap="bookingMap">
+        SELECT <include refid="bookingColumns"/>
+        FROM training_booking
+        <where>
+            <if test="studentUserId != null">student_user_id = #{studentUserId}</if>
+            <if test="coachUserId != null">AND coach_user_id = #{coachUserId}</if>
+            <if test="status != null and status != ''">AND status = #{status}</if>
+        </where>
+        ORDER BY planned_start DESC, booking_id DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <select id="count" resultType="long">
+        SELECT COUNT(*) FROM training_booking
+        <where>
+            <if test="studentUserId != null">student_user_id = #{studentUserId}</if>
+            <if test="coachUserId != null">AND coach_user_id = #{coachUserId}</if>
+            <if test="status != null and status != ''">AND status = #{status}</if>
+        </where>
+    </select>
+</mapper>

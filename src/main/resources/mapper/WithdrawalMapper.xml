@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.drivingschool.mapper.WithdrawalMapper">
+    <resultMap id="withdrawalMap" type="WithdrawalRequest">
+        <id property="withdrawalId" column="withdrawal_id"/><result property="enrollmentId" column="enrollment_id"/>
+        <result property="reason" column="reason"/><result property="requestedAt" column="requested_at"/>
+        <result property="status" column="status"/><result property="reviewedBy" column="reviewed_by"/>
+        <result property="reviewedAt" column="reviewed_at"/><result property="reviewNote" column="review_note"/>
+        <result property="approvedRefundAmount" column="approved_refund_amount"/>
+        <result property="refundAmount" column="refund_amount"/><result property="refundMethod" column="refund_method"/>
+        <result property="refundVoucher" column="refund_voucher"/><result property="refundedBy" column="refunded_by"/>
+        <result property="refundedAt" column="refunded_at"/>
+    </resultMap>
+    <sql id="columns">withdrawal_id,enrollment_id,reason,requested_at,status,reviewed_by,reviewed_at,review_note,approved_refund_amount,refund_amount,refund_method,refund_voucher,refunded_by,refunded_at</sql>
+
+    <select id="findById" resultMap="withdrawalMap">SELECT <include refid="columns"/> FROM withdrawal_request WHERE withdrawal_id = #{withdrawalId}</select>
+    <select id="findByIdForUpdate" resultMap="withdrawalMap">SELECT <include refid="columns"/> FROM withdrawal_request WHERE withdrawal_id = #{withdrawalId} FOR UPDATE</select>
+    <select id="findByEnrollmentId" resultMap="withdrawalMap">SELECT <include refid="columns"/> FROM withdrawal_request WHERE enrollment_id = #{enrollmentId}</select>
+    <select id="findByEnrollmentIdForUpdate" resultMap="withdrawalMap">SELECT <include refid="columns"/> FROM withdrawal_request WHERE enrollment_id = #{enrollmentId} FOR UPDATE</select>
+
+    <insert id="insert" parameterType="WithdrawalRequest" useGeneratedKeys="true" keyProperty="withdrawalId">
+        INSERT INTO withdrawal_request(enrollment_id,reason,requested_at,status)
+        VALUES (#{enrollmentId},#{reason},#{requestedAt},'SUBMITTED')
+    </insert>
+    <update id="resubmit">
+        UPDATE withdrawal_request
+        SET reason = #{reason}, requested_at = #{requestedAt}, status = 'SUBMITTED', reviewed_by = NULL,
+            reviewed_at = NULL, review_note = NULL, approved_refund_amount = NULL, refund_amount = NULL,
+            refund_method = NULL, refund_voucher = NULL, refunded_by = NULL, refunded_at = NULL
+        WHERE withdrawal_id = #{withdrawalId} AND status = 'REJECTED'
+    </update>
+    <update id="review">
+        UPDATE withdrawal_request
+        SET status = #{status}, reviewed_by = #{reviewedBy}, reviewed_at = #{reviewedAt}, review_note = #{reviewNote},
+            approved_refund_amount = <choose><when test="status == 'APPROVED'">#{approvedRefundAmount}</when><otherwise>NULL</otherwise></choose>
+        WHERE withdrawal_id = #{withdrawalId} AND status = 'SUBMITTED'
+    </update>
+    <update id="refund">
+        UPDATE withdrawal_request
+        SET status = 'REFUNDED', refund_amount = #{refundAmount}, refund_method = #{refundMethod},
+            refund_voucher = #{refundVoucher}, refunded_by = #{refundedBy}, refunded_at = #{refundedAt}
+        WHERE withdrawal_id = #{withdrawalId} AND status = 'APPROVED'
+    </update>
+    <select id="findPage" resultMap="withdrawalMap">
+        SELECT w.withdrawal_id,w.enrollment_id,w.reason,w.requested_at,w.status,w.reviewed_by,w.reviewed_at,
+               w.review_note,w.approved_refund_amount,w.refund_amount,w.refund_method,w.refund_voucher,w.refunded_by,w.refunded_at
+        FROM withdrawal_request w JOIN enrollment e ON e.enrollment_id = w.enrollment_id
+        <where>
+            <if test="studentUserId != null">e.student_user_id = #{studentUserId}</if>
+            <if test="status != null and status != ''">AND w.status = #{status}</if>
+        </where>
+        ORDER BY w.requested_at DESC, w.withdrawal_id DESC LIMIT #{offset}, #{size}
+    </select>
+    <select id="count" resultType="long">
+        SELECT COUNT(*) FROM withdrawal_request w JOIN enrollment e ON e.enrollment_id = w.enrollment_id
+        <where>
+            <if test="studentUserId != null">e.student_user_id = #{studentUserId}</if>
+            <if test="status != null and status != ''">AND w.status = #{status}</if>
+        </where>
+    </select>
+</mapper>

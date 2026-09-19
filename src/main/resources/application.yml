@@ -1,0 +1,45 @@
+server:
+  port: ${SERVER_PORT:8080}
+  servlet:
+    session:
+      cookie:
+        same-site: strict
+
+spring:
+  application:
+    name: driving-school-training-exam-management
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/driving_school_v12?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jackson:
+    default-property-inclusion: non_null
+    time-zone: Asia/Shanghai
+  thymeleaf:
+    cache: false
+
+mybatis:
+  mapper-locations: classpath*:mapper/*.xml
+  type-aliases-package: com.example.drivingschool.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    jdbc-type-for-null: 'NULL'
+    default-fetch-size: 100
+    default-statement-timeout: 30
+
+app:
+  jwt:
+    access-token-ttl: ${JWT_ACCESS_TOKEN_TTL:PT2H}
+    cookie-name: access_token
+    cookie-secure: ${JWT_COOKIE_SECURE:false}
+    cookie-same-site: Strict
+    secret: ${JWT_SECRET:}
+  enrollment:
+    c1-amount: 4800.00
+    c2-amount: 5000.00
+    planned-hours: 40.00
+
+logging:
+  level:
+    com.example.drivingschool.mapper: ${MAPPER_LOG_LEVEL:INFO}
