@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.drivingschool.mapper.TrainingVehicleMapper">
+    <resultMap id="BaseResultMap" type="TrainingVehicle">
+        <id property="vehicleId" column="vehicle_id"/>
+        <result property="plateNo" column="plate_no"/>
+        <result property="licenseType" column="license_type"/>
+        <result property="enabled" column="enabled"/>
+    </resultMap>
+    <sql id="BaseColumns">vehicle_id, plate_no, license_type, enabled</sql>
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT <include refid="BaseColumns"/> FROM training_vehicle WHERE vehicle_id = #{vehicleId}
+    </select>
+    <select id="selectList" resultMap="BaseResultMap">
+        SELECT <include refid="BaseColumns"/>
+        FROM training_vehicle
+        <where>
+            <if test="enabled != null">enabled = #{enabled}</if>
+            <if test="licenseType != null and licenseType != ''">AND license_type = #{licenseType}</if>
+        </where>
+        ORDER BY vehicle_id
+    </select>
+    <select id="countByPlateNo" resultType="int">
+        SELECT COUNT(*) FROM training_vehicle WHERE plate_no = #{plateNo}
+    </select>
+    <insert id="insert" parameterType="TrainingVehicle" useGeneratedKeys="true" keyProperty="vehicleId">
+        INSERT INTO training_vehicle (plate_no, license_type, enabled)
+        VALUES (#{plateNo}, #{licenseType}, COALESCE(#{enabled}, TRUE))
+    </insert>
+    <update id="updateById" parameterType="TrainingVehicle">
+        UPDATE training_vehicle
+        <set>
+            <if test="plateNo != null and plateNo != ''">plate_no = #{plateNo},</if>
+            <if test="licenseType != null and licenseType != ''">license_type = #{licenseType},</if>
+            <if test="enabled != null">enabled = #{enabled},</if>
+        </set>
+        WHERE vehicle_id = #{vehicleId}
+    </update>
+    <update id="updateEnabled">
+        UPDATE training_vehicle SET enabled = #{enabled} WHERE vehicle_id = #{vehicleId}
+    </update>
+    <select id="countBookingReference" resultType="int">
+        SELECT COUNT(*) FROM training_booking WHERE vehicle_id = #{vehicleId}
+    </select>
+    <delete id="deleteById">
+        DELETE FROM training_vehicle WHERE vehicle_id = #{vehicleId}
+    </delete>
+</mapper>

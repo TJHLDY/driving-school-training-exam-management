@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.drivingschool.mapper.MenuMapper">
+    <resultMap id="BaseResultMap" type="Menu">
+        <id property="menuId" column="menu_id"/>
+        <result property="roleId" column="role_id"/>
+        <result property="menuCode" column="menu_code"/>
+        <result property="menuName" column="menu_name"/>
+        <result property="routePath" column="route_path"/>
+        <result property="sortNo" column="sort_no"/>
+        <result property="enabled" column="enabled"/>
+    </resultMap>
+    <sql id="BaseColumns">menu_id, role_id, menu_code, menu_name, route_path, sort_no, enabled</sql>
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT <include refid="BaseColumns"/> FROM menu WHERE menu_id = #{menuId}
+    </select>
+    <select id="selectList" resultMap="BaseResultMap">
+        SELECT <include refid="BaseColumns"/>
+        FROM menu
+        <where>
+            <if test="roleId != null">role_id = #{roleId}</if>
+            <if test="enabled != null">AND enabled = #{enabled}</if>
+        </where>
+        ORDER BY role_id, sort_no, menu_id
+    </select>
+    <!-- 菜单按当前用户的角色查询，再按 route_path 去重： 多角色用户对同一路径只保留 menu_id 最小的那条，避免菜单重复。 这正是 academic（同时是教务和教练）既能看报名审核又不重复看培训的原因。 -->
+    <select id="selectByUserId" resultMap="BaseResultMap">
+        SELECT m.menu_id, m.role_id, m.menu_code, m.menu_name, m.route_path, m.sort_no, m.enabled
+        FROM menu m
+        JOIN user_role ur ON ur.role_id = m.role_id
+        WHERE ur.user_id = #{userId}
+          AND m.enabled = TRUE
+          AND m.menu_id = (
+              SELECT MIN(m2.menu_id)
+              FROM menu m2
+              JOIN user_role ur2 ON ur2.role_id = m2.role_id
+              WHERE ur2.user_id = #{userId}
+                AND m2.route_path = m.route_path
+                AND m2.enabled = TRUE
+          )
+        ORDER BY m.sort_no, m.menu_id
+    </select>
+    <select id="countByRoleIdAndCode" resultType="int">
+        SELECT COUNT(*) FROM menu WHERE role_id = #{roleId} AND menu_code = #{menuCode}
+    </select>
+    <insert id="insert" parameterType="Menu" useGeneratedKeys="true" keyProperty="menuId">
+        INSERT INTO menu (role_id, menu_code, menu_name, route_path, sort_no, enabled)
+        VALUES (#{roleId}, #{menuCode}, #{menuName}, #{routePath},
+                COALESCE(#{sortNo}, 0), COALESCE(#{enabled}, TRUE))
+    </insert>
+    <update id="updateById" parameterType="Menu">
+        UPDATE menu
+        <set>
+            <if test="menuName != null and menuName != ''">menu_name = #{menuName},</if>
+            <if test="routePath != null and routePath != ''">route_path = #{routePath},</if>
+            <if test="sortNo != null">sort_no = #{sortNo},</if>
+            <if test="enabled != null">enabled = #{enabled},</if>
+        </set>
+        WHERE menu_id = #{menuId}
+    </update>
+    <update id="updateEnabled">
+        UPDATE menu SET enabled = #{enabled} WHERE menu_id = #{menuId}
+    </update>
+    <delete id="deleteById">
+        DELETE FROM menu WHERE menu_id = #{menuId}
+    </delete>
+</mapper>

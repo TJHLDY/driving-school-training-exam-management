@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.drivingschool.mapper.TrainingBookingMapper">
+    <resultMap id="BaseResultMap" type="TrainingBooking">
+        <id property="bookingId" column="booking_id"/>
+        <result property="studentUserId" column="student_user_id"/>
+        <result property="coachUserId" column="coach_user_id"/>
+        <result property="vehicleId" column="vehicle_id"/>
+        <result property="plannedStart" column="planned_start"/>
+        <result property="plannedEnd" column="planned_end"/>
+        <result property="location" column="location"/>
+        <result property="status" column="status"/>
+        <result property="createdBy" column="created_by"/>
+        <result property="requestedAt" column="requested_at"/>
+        <result property="assignedBy" column="assigned_by"/>
+        <result property="assignedAt" column="assigned_at"/>
+        <result property="actualStart" column="actual_start"/>
+        <result property="actualEnd" column="actual_end"/>
+        <result property="validHours" column="valid_hours"/>
+        <result property="resultNote" column="result_note"/>
+        <result property="cancelledAt" column="cancelled_at"/>
+    </resultMap>
+    <resultMap id="DetailResultMap" type="TrainingBookingDetailDto">
+        <id property="bookingId" column="booking_id"/>
+        <result property="studentUserId" column="student_user_id"/>
+        <result property="studentName" column="student_name"/>
+        <result property="coachUserId" column="coach_user_id"/>
+        <result property="coachName" column="coach_name"/>
+        <result property="vehicleId" column="vehicle_id"/>
+        <result property="plateNo" column="plate_no"/>
+        <result property="licenseType" column="license_type"/>
+        <result property="plannedStart" column="planned_start"/>
+        <result property="plannedEnd" column="planned_end"/>
+        <result property="location" column="location"/>
+        <result property="status" column="status"/>
+        <result property="requestedAt" column="requested_at"/>
+        <result property="actualStart" column="actual_start"/>
+        <result property="actualEnd" column="actual_end"/>
+        <result property="validHours" column="valid_hours"/>
+        <result property="resultNote" column="result_note"/>
+    </resultMap>
+    <sql id="BaseColumns">
+        booking_id, student_user_id, coach_user_id, vehicle_id, planned_start, planned_end,
+        location, status, created_by, requested_at, assigned_by, assigned_at,
+        actual_start, actual_end, valid_hours, result_note, cancelled_at
+    </sql>
+    <!-- 学员、教练、车辆都用 LEFT JOIN：OPEN 时段还没有学员，PENDING 预约还没有教练和车辆 -->
+    <sql id="DetailSelect">
+        SELECT b.booking_id, b.student_user_id, su.real_name AS student_name,
+               b.coach_user_id, cu.real_name AS coach_name,
+               b.vehicle_id, v.plate_no, v.license_type,
+               b.planned_start, b.planned_end, b.location, b.status, b.requested_at,
+               b.actual_start, b.actual_end, b.valid_hours, b.result_note
+        FROM training_booking b
+        LEFT JOIN user_account su ON su.user_id = b.student_user_id
+        LEFT JOIN user_account cu ON cu.user_id = b.coach_user_id
+        LEFT JOIN training_vehicle v ON v.vehicle_id = b.vehicle_id
+    </sql>
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT <include refid="BaseColumns"/> FROM training_booking WHERE booking_id = #{bookingId}
+    </select>
+    <select id="selectByIdForUpdate" resultMap="BaseResultMap">
+        SELECT <include refid="BaseColumns"/> FROM training_booking
+        WHERE booking_id = #{bookingId} FOR UPDATE
+    </select>
+    <select id="selectDetailById" resultMap="DetailResultMap">
+        <include refid="DetailSelect"/> WHERE b.booking_id = #{bookingId}
+    </select>
+    <select id="selectDetailList" resultMap="DetailResultMap">
+        <include refid="DetailSelect"/>
+        <where>
+            <if test="studentUserId != null">b.student_user_id = #{studentUserId}</if>
+            <if test="coachUserId != null">AND b.coach_user_id = #{coachUserId}</if>
+            <if test="status != null and status != ''">AND b.status = #{status}</if>
+        </where>
+        ORDER BY b.planned_start DESC, b.booking_id DESC
+    </select>
+    <!-- 教务发布的时段就是 status = OPEN 的行 -->
+    <select id="selectOpenSlots" resultMap="BaseResultMap">
+        SELECT <include refid="BaseColumns"/>
+        FROM training_booking
+        WHERE status = 'OPEN' AND planned_start &gt; #{fromTime}
+        ORDER BY planned_start, booking_id
+    </select>
+    <insert id="insertOpenSlot" parameterType="TrainingBooking" useGeneratedKeys="true" keyProperty="bookingId">
+        INSERT INTO training_booking (planned_start, planned_end, location, status, created_by)
+        VALUES (#{plannedStart}, #{plannedEnd}, #{location}, 'OPEN', #{createdBy})
+    </insert>
+    <!-- 认领时条件更新 OPEN，影响行数为 0 说明被别人抢先，防止两人抢同一时段 -->
+    <update id="claimOpenSlot">
+        UPDATE training_booking
+        SET student_user_id = #{studentUserId}, status = 'PENDING', requested_at = NOW()
+        WHERE booking_id = #{bookingId}
+          AND status = 'OPEN'
+          AND student_user_id IS NULL
+    </update>
+    <update id="assign">
+        UPDATE training_booking
+        SET coach_user_id = #{coachUserId}, vehicle_id = #{vehicleId},
+            assigned_by = #{assignedBy}, assigned_at = NOW(), status = 'ASSIGNED'
+        WHERE booking_id = #{bookingId} AND status = 'PENDING'
+    </update>
+    <update id="complete">
+        UPDATE training_booking
+        SET actual_start = #{actualStart}, actual_end = #{actualEnd},
+            valid_hours = #{validHours}, result_note = #{resultNote}, status = 'COMPLETED'
+        WHERE booking_id = #{bookingId} AND status = 'ASSIGNED'
+    </update>
+    <update id="cancel">
+        UPDATE training_booking
+        SET status = 'CANCELLED', cancelled_at = NOW()
+        WHERE booking_id = #{bookingId} AND status IN ('PENDING', 'ASSIGNED')
+    </update>
+    <update id="cancelFutureByStudentUserId">
+        UPDATE training_booking
+        SET status = 'CANCELLED', cancelled_at = NOW()
+        WHERE student_user_id = #{studentUserId}
+          AND status IN ('PENDING', 'ASSIGNED')
+          AND planned_start &gt; NOW()
+    </update>
+    <!-- 冲突判断：两段时间有重叠，即新开始 < 已有结束 且 新结束 > 已有开始 -->
+    <select id="countStudentConflict" resultType="int">
+        SELECT COUNT(*) FROM training_booking
+        WHERE student_user_id = #{studentUserId}
+          AND status IN ('PENDING', 'ASSIGNED', 'COMPLETED')
+          AND planned_start &lt; #{plannedEnd}
+          AND planned_end &gt; #{plannedStart}
+    </select>
+    <select id="countCoachConflict" resultType="int">
+        SELECT COUNT(*) FROM training_booking
+        WHERE coach_user_id = #{coachUserId}
+          AND status IN ('PENDING', 'ASSIGNED', 'COMPLETED')
+          AND planned_start &lt; #{plannedEnd}
+          AND planned_end &gt; #{plannedStart}
+    </select>
+    <select id="countVehicleConflict" resultType="int">
+        SELECT COUNT(*) FROM training_booking
+        WHERE vehicle_id = #{vehicleId}
+          AND status IN ('PENDING', 'ASSIGNED', 'COMPLETED')
+          AND planned_start &lt; #{plannedEnd}
+          AND planned_end &gt; #{plannedStart}
+    </select>
+    <!-- 累计有效学时只汇总 COMPLETED 行 -->
+    <select id="sumValidHoursByStudentUserId" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(valid_hours), 0)
+        FROM training_booking
+        WHERE student_user_id = #{studentUserId} AND status = 'COMPLETED'
+    </select>
+</mapper>

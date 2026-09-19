@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.drivingschool.mapper.EnrollmentMapper">
+    <resultMap id="BaseResultMap" type="Enrollment">
+        <id property="enrollmentId" column="enrollment_id"/>
+        <result property="studentUserId" column="student_user_id"/>
+        <result property="licenseType" column="license_type"/>
+        <result property="requiredAmount" column="required_amount"/>
+        <result property="plannedHours" column="planned_hours"/>
+        <result property="status" column="status"/>
+        <result property="submittedAt" column="submitted_at"/>
+        <result property="reviewedBy" column="reviewed_by"/>
+        <result property="reviewedAt" column="reviewed_at"/>
+        <result property="reviewNote" column="review_note"/>
+        <result property="paidAmount" column="paid_amount"/>
+        <result property="paymentMethod" column="payment_method"/>
+        <result property="paymentVoucher" column="payment_voucher"/>
+        <result property="paidBy" column="paid_by"/>
+        <result property="paidAt" column="paid_at"/>
+    </resultMap>
+    <resultMap id="DetailResultMap" type="EnrollmentDetailDto">
+        <id property="enrollmentId" column="enrollment_id"/>
+        <result property="studentUserId" column="student_user_id"/>
+        <result property="studentName" column="student_name"/>
+        <result property="phone" column="phone"/>
+        <result property="licenseType" column="license_type"/>
+        <result property="requiredAmount" column="required_amount"/>
+        <result property="plannedHours" column="planned_hours"/>
+        <result property="status" column="status"/>
+        <result property="submittedAt" column="submitted_at"/>
+        <result property="reviewedBy" column="reviewed_by"/>
+        <result property="reviewedByName" column="reviewed_by_name"/>
+        <result property="reviewedAt" column="reviewed_at"/>
+        <result property="reviewNote" column="review_note"/>
+        <result property="paidAmount" column="paid_amount"/>
+        <result property="paymentMethod" column="payment_method"/>
+        <result property="paymentVoucher" column="payment_voucher"/>
+        <result property="paidBy" column="paid_by"/>
+        <result property="paidByName" column="paid_by_name"/>
+        <result property="paidAt" column="paid_at"/>
+    </resultMap>
+    <sql id="BaseColumns">
+        enrollment_id, student_user_id, license_type, required_amount, planned_hours, status,
+        submitted_at, reviewed_by, reviewed_at, review_note,
+        paid_amount, payment_method, payment_voucher, paid_by, paid_at
+    </sql>
+    <!-- 报名详情：连出学员、审核人、收款人的姓名 -->
+    <sql id="DetailSelect">
+        SELECT e.enrollment_id, e.student_user_id, su.real_name AS student_name, su.phone,
+               e.license_type, e.required_amount, e.planned_hours, e.status, e.submitted_at,
+               e.reviewed_by, ru.real_name AS reviewed_by_name, e.reviewed_at, e.review_note,
+               e.paid_amount, e.payment_method, e.payment_voucher,
+               e.paid_by, pu.real_name AS paid_by_name, e.paid_at
+        FROM enrollment e
+        JOIN user_account su ON su.user_id = e.student_user_id
+        LEFT JOIN user_account ru ON ru.user_id = e.reviewed_by
+        LEFT JOIN user_account pu ON pu.user_id = e.paid_by
+    </sql>
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT <include refid="BaseColumns"/> FROM enrollment WHERE enrollment_id = #{enrollmentId}
+    </select>
+    <select id="selectDetailById" resultMap="DetailResultMap">
+        <include refid="DetailSelect"/> WHERE e.enrollment_id = #{enrollmentId}
+    </select>
+    <select id="selectDetailList" resultMap="DetailResultMap">
+        <include refid="DetailSelect"/>
+        <where>
+            <if test="studentUserId != null">e.student_user_id = #{studentUserId}</if>
+            <if test="status != null and status != ''">AND e.status = #{status}</if>
+            <if test="keyword != null and keyword != ''">
+                AND (su.real_name LIKE CONCAT('%', #{keyword}, '%')
+                  OR su.phone LIKE CONCAT('%', #{keyword}, '%')
+                  OR su.id_number LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+        </where>
+        ORDER BY e.submitted_at DESC, e.enrollment_id DESC
+    </select>
+    <select id="selectByStudentUserId" resultMap="BaseResultMap">
+        SELECT <include refid="BaseColumns"/>
+        FROM enrollment WHERE student_user_id = #{studentUserId}
+    </select>
+    <insert id="insert" parameterType="Enrollment" useGeneratedKeys="true" keyProperty="enrollmentId">
+        INSERT INTO enrollment (student_user_id, license_type, required_amount, planned_hours,
+                                status, submitted_at)
+        VALUES (#{studentUserId}, #{licenseType}, #{requiredAmount}, #{plannedHours},
+                COALESCE(#{status}, 'SUBMITTED'), NOW())
+    </insert>
+    <!-- 驳回后修改原记录重提：只允许 REJECTED 状态 -->
+    <update id="updateAndResubmit">
+        UPDATE enrollment
+        SET license_type = #{licenseType},
+            required_amount = #{availableAmount},
+            status = 'SUBMITTED',
+            submitted_at = NOW(),
+            reviewed_by = NULL, reviewed_at = NULL, review_note = NULL
+        WHERE enrollment_id = #{enrollmentId} AND status = 'REJECTED'
+    </update>
+    <!-- 教务审核：通过时同时确认费用和学时，学员不能自己改价 -->
+    <update id="review">
+        UPDATE enrollment
+        SET status = #{status},
+            required_amount = COALESCE(#{requiredAmount}, required_amount),
+            planned_hours = COALESCE(#{plannedHours}, planned_hours),
+            reviewed_by = #{reviewedBy},
+            reviewed_at = NOW(),
+            review_note = #{reviewNote}
+        WHERE enrollment_id = #{enrollmentId} AND status = 'SUBMITTED'
+    </update>
+    <!-- 一次全额缴费：只允许 APPROVED 状态，金额必须等于应缴金额； 返回 0 表示这笔报名已经缴过费，不会重复收款。 -->
+    <update id="registerPayment">
+        UPDATE enrollment
+        SET paid_amount = #{paidAmount},
+            payment_method = #{paymentMethod},
+            payment_voucher = #{paymentVoucher},
+            paid_by = #{paidBy},
+            paid_at = NOW(),
+            status = 'ACTIVE'
+        WHERE enrollment_id = #{enrollmentId}
+          AND status = 'APPROVED'
+          AND #{paidAmount} = required_amount
+    </update>
+    <update id="markWithdrawn">
+        UPDATE enrollment SET status = 'WITHDRAWN' WHERE enrollment_id = #{enrollmentId}
+    </update>
+</mapper>

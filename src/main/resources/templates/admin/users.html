@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('用户管理 - 驾校培训与考试管理系统')}"></head>
+<body>
+<div class="app">
+    <main class="content">
+        <h1 class="page-title">用户与角色管理</h1>
+
+        <div class="alert alert-ok" th:if="${msg}" th:text="${msg}"></div>
+        <div class="alert alert-err" th:if="${err}" th:text="${err}"></div>
+
+        <div class="card">
+            <h2>账号列表 <span class="sub">一个用户可以拥有多个角色</span></h2>
+            <table>
+                <thead>
+                <tr><th>编号</th><th>登录名</th><th>姓名</th><th>手机号</th><th>身份证号</th>
+                    <th>准教车型</th><th>当前角色</th><th>状态</th><th>操作</th></tr>
+                </thead>
+                <tbody>
+                <tr th:each="u : ${users}">
+                    <td th:text="${u.userId}">1</td>
+                    <td th:text="${u.username}">用户名</td>
+                    <td th:text="${u.realName}">姓名</td>
+                    <td th:text="${u.phone}">-</td>
+                    <td th:text="${u.idNumber} ?: '-'">-</td>
+                    <td th:text="${u.coachLicense} ?: '-'">-</td>
+                    <td th:text="${userRoles.get(u.userId)}">角色</td>
+                    <td><span class="tag" th:classappend="${u.enabled} ? 'tag-ok' : 'tag-off'" th:text="${u.enabled} ? '启用' : '停用'">状态</span></td>
+                    <td class="row-actions">
+                        <form th:action="@{/users/{id}/roles(id=${u.userId})}" method="post">
+                            <select name="roleIds" multiple size="1" style="width:150px">
+                                <option th:each="r : ${roles}" th:value="${r.roleId}"
+                                        th:text="${r.roleName}">角色</option>
+                            </select>
+                            <button class="btn btn-sm">保存角色</button>
+                        </form>
+                        <form th:action="@{/users/{id}/status(id=${u.userId})}" method="post">
+                            <input type="hidden" name="enabled" th:value="${!u.enabled}">
+                            <button class="btn btn-sm btn-line" th:text="${u.enabled} ? '停用' : '启用'">停用</button>
+                        </form>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+        <p class="muted">停用只影响登录，不删除历史记录。账号一旦被报名、培训、答卷等业务记录引用，就不允许删除。</p>
+    </main>
+    <aside th:replace="~{layout :: sidebar}"></aside>
+</div>
+</body>
+</html>

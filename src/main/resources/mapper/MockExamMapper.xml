@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.drivingschool.mapper.MockExamMapper">
+    <resultMap id="BaseResultMap" type="MockExam">
+        <id property="examId" column="exam_id"/>
+        <result property="examName" column="exam_name"/>
+        <result property="questionCount" column="question_count"/>
+        <result property="durationMinutes" column="duration_minutes"/>
+        <result property="passScore" column="pass_score"/>
+        <result property="status" column="status"/>
+        <result property="submittedBy" column="submitted_by"/>
+        <result property="reviewedBy" column="reviewed_by"/>
+        <result property="reviewedAt" column="reviewed_at"/>
+        <result property="reviewNote" column="review_note"/>
+        <result property="publishedAt" column="published_at"/>
+    </resultMap>
+    <sql id="BaseColumns">
+        exam_id, exam_name, question_count, duration_minutes, pass_score, status,
+        submitted_by, reviewed_by, reviewed_at, review_note, published_at
+    </sql>
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT <include refid="BaseColumns"/> FROM mock_exam WHERE exam_id = #{examId}
+    </select>
+    <select id="selectList" resultMap="BaseResultMap">
+        SELECT <include refid="BaseColumns"/>
+        FROM mock_exam
+        <where>
+            <if test="status != null and status != ''">status = #{status}</if>
+        </where>
+        ORDER BY exam_id DESC
+    </select>
+    <select id="selectBySubmittedBy" resultMap="BaseResultMap">
+        SELECT <include refid="BaseColumns"/>
+        FROM mock_exam WHERE submitted_by = #{submittedBy} ORDER BY exam_id DESC
+    </select>
+    <select id="selectPublished" resultMap="BaseResultMap">
+        SELECT <include refid="BaseColumns"/>
+        FROM mock_exam WHERE status = 'PUBLISHED'
+        ORDER BY published_at DESC, exam_id DESC
+    </select>
+    <insert id="insert" parameterType="MockExam" useGeneratedKeys="true" keyProperty="examId">
+        INSERT INTO mock_exam (exam_name, question_count, duration_minutes, pass_score, status, submitted_by)
+        VALUES (#{examName}, 20, 20, 90, COALESCE(#{status}, 'DRAFT'), #{submittedBy})
+    </insert>
+    <update id="updateStatus">
+        UPDATE mock_exam SET status = #{status} WHERE exam_id = #{examId}
+    </update>
+    <update id="review">
+        UPDATE mock_exam
+        SET status = #{status}, reviewed_by = #{reviewedBy}, reviewed_at = NOW(), review_note = #{reviewNote}
+        WHERE exam_id = #{examId} AND status = 'SUBMITTED'
+    </update>
+    <update id="publish">
+        UPDATE mock_exam
+        SET status = 'PUBLISHED', reviewed_by = #{reviewedBy}, reviewed_at = NOW(), published_at = NOW()
+        WHERE exam_id = #{examId} AND status = 'SUBMITTED'
+    </update>
+    <!-- 关闭只阻止新开答卷，已有答卷可以继续完成 -->
+    <update id="close">
+        UPDATE mock_exam SET status = 'CLOSED' WHERE exam_id = #{examId} AND status = 'PUBLISHED'
+    </update>
+    <select id="countAttemptReference" resultType="int">
+        SELECT COUNT(*) FROM exam_attempt WHERE exam_id = #{examId}
+    </select>
+</mapper>

@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.drivingschool.mapper.ExamAnswerMapper">
+    <resultMap id="BaseResultMap" type="ExamAnswer">
+        <id property="answerId" column="answer_id"/>
+        <result property="attemptId" column="attempt_id"/>
+        <result property="questionId" column="question_id"/>
+        <result property="positionNo" column="position_no"/>
+        <result property="selectedOption" column="selected_option"/>
+        <result property="scoreAwarded" column="score_awarded"/>
+        <result property="answeredAt" column="answered_at"/>
+    </resultMap>
+    <resultMap id="AnswerDetailResultMap" type="AnswerDetailDto">
+        <id property="answerId" column="answer_id"/>
+        <result property="positionNo" column="position_no"/>
+        <result property="questionId" column="question_id"/>
+        <result property="stem" column="stem"/>
+        <result property="optionA" column="option_a"/>
+        <result property="optionB" column="option_b"/>
+        <result property="optionC" column="option_c"/>
+        <result property="optionD" column="option_d"/>
+        <result property="selectedOption" column="selected_option"/>
+        <result property="scoreAwarded" column="score_awarded"/>
+        <result property="correctOption" column="correct_option"/>
+        <result property="explanation" column="explanation"/>
+    </resultMap>
+    <select id="selectByAttemptId" resultMap="BaseResultMap">
+        SELECT answer_id, attempt_id, question_id, position_no, selected_option, score_awarded, answered_at
+        FROM exam_answer
+        WHERE attempt_id = #{attemptId}
+        ORDER BY position_no
+    </select>
+    <!-- 答题中：只取题干和选项，不返回 correct_option 和 explanation，避免答案提前泄露 -->
+    <select id="selectForAnswering" resultMap="AnswerDetailResultMap">
+        SELECT a.answer_id, a.position_no, a.question_id, q.stem,
+               q.option_a, q.option_b, q.option_c, q.option_d,
+               a.selected_option, a.score_awarded
+        FROM exam_answer a
+        JOIN question_bank q ON q.question_id = a.question_id
+        WHERE a.attempt_id = #{attemptId}
+        ORDER BY a.position_no
+    </select>
+    <!-- 交卷后：连同正确答案和解析一起返回，用于成绩和错题复核 -->
+    <select id="selectForReview" resultMap="AnswerDetailResultMap">
+        SELECT a.answer_id, a.position_no, a.question_id, q.stem,
+               q.option_a, q.option_b, q.option_c, q.option_d,
+               a.selected_option, a.score_awarded, q.correct_option, q.explanation
+        FROM exam_answer a
+        JOIN question_bank q ON q.question_id = a.question_id
+        WHERE a.attempt_id = #{attemptId}
+        ORDER BY a.position_no
+    </select>
+    <select id="selectByAttemptIdAndQuestionId" resultMap="BaseResultMap">
+        SELECT answer_id, attempt_id, question_id, position_no, selected_option, score_awarded, answered_at
+        FROM exam_answer
+        WHERE attempt_id = #{attemptId} AND question_id = #{questionId}
+    </select>
+    <select id="countByAttemptId" resultType="int">
+        SELECT COUNT(*) FROM exam_answer WHERE attempt_id = #{attemptId}
+    </select>
+    <!-- 开考时按抽题顺序一次写入 20 行，position_no 就是固定题序 -->
+    <insert id="insertBatch">
+        INSERT INTO exam_answer (attempt_id, question_id, position_no, score_awarded)
+        VALUES
+        <foreach collection="list" item="a" separator=",">
+            (#{a.attemptId}, #{a.questionId}, #{a.positionNo}, 0)
+        </foreach>
+    </insert>
+    <update id="updateAnswer">
+        UPDATE exam_answer
+        SET selected_option = #{selectedOption}, score_awarded = #{scoreAwarded}, answered_at = NOW()
+        WHERE attempt_id = #{attemptId} AND question_id = #{questionId}
+    </update>
+    <select id="sumScoreByAttemptId" resultType="int">
+        SELECT COALESCE(SUM(score_awarded), 0) FROM exam_answer WHERE attempt_id = #{attemptId}
+    </select>
+</mapper>

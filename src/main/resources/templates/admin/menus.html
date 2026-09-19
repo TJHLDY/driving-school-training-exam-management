@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('菜单管理 - 驾校培训与考试管理系统')}"></head>
+<body>
+<div class="app">
+    <main class="content">
+        <h1 class="page-title">菜单管理</h1>
+
+        <div class="alert alert-ok" th:if="${msg}" th:text="${msg}"></div>
+        <div class="alert alert-err" th:if="${err}" th:text="${err}"></div>
+
+        <div class="card">
+            <h2>新增菜单项 <span class="sub">一行表示某个角色的一项菜单</span></h2>
+            <form th:action="@{/menus}" method="post" class="row-actions">
+                <select name="roleId" required>
+                    <option th:each="r : ${roles}" th:value="${r.roleId}" th:text="${r.roleName}">角色</option>
+                </select>
+                <input name="menuCode" placeholder="菜单编码" required style="width:130px">
+                <input name="menuName" placeholder="菜单名称" required style="width:130px">
+                <input name="routePath" placeholder="访问路径 /xxx" required style="width:150px">
+                <input type="number" name="sortNo" value="0" style="width:70px" title="排序号">
+                <button class="btn btn-sm">新增</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h2>菜单列表 <span class="sub">学员登录后按角色合并去重显示</span></h2>
+            <table>
+                <thead><tr><th>编号</th><th>角色</th><th>编码</th><th>名称</th><th>路径</th><th>排序</th><th>状态</th></tr></thead>
+                <tbody>
+                <tr th:each="m : ${menus}">
+                    <td th:text="${m.menuId}">1</td>
+                    <td th:text="${m.roleId}">1</td>
+                    <td th:text="${m.menuCode}">users</td>
+                    <td th:text="${m.menuName}">用户管理</td>
+                    <td th:text="${m.routePath}">/users</td>
+                    <td th:text="${m.sortNo}">0</td>
+                    <td><span class="tag" th:classappend="${m.enabled} ? 'tag-ok' : 'tag-off'" th:text="${m.enabled} ? '启用' : '停用'">状态</span></td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+    <aside th:replace="~{layout :: sidebar}"></aside>
+</div>
+</body>
+</html>

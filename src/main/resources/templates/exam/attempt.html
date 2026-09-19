@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('答题 - 驾校培训与考试管理系统')}"></head>
+<body>
+<div class="app">
+    <main class="content">
+        <h1 class="page-title">模拟考试：<span th:text="${attempt.examName}">考试</span></h1>
+
+        <div class="alert alert-ok" th:if="${msg}" th:text="${msg}"></div>
+
+        <div class="card">
+            <h2>考试信息</h2>
+            <table>
+                <tr><th style="width:120px">题数</th><td th:text="${#lists.size(answers)} + ' 题'">20 题</td></tr>
+                <tr><th>截止时间</th><td th:text="${attempt.deadlineAt}">-</td></tr>
+                <tr><th>剩余时间</th><td><span id="countdown" class="tag tag-warn"
+                                             th:attr="data-deadline=${attempt.deadlineAt}">计算中</span></td></tr>
+            </table>
+            <p class="muted">题目顺序在开考时已经固定，刷新页面恢复的是同一份卷子、同一个顺序。</p>
+        </div>
+
+        <form th:action="@{/attempts/{id}/submit(id=${attempt.attemptId})}" method="post" id="answerForm">
+            <div class="card" th:each="a : ${answers}">
+                <h2 th:text="'第 ' + ${a.positionNo} + ' 题'">第 1 题</h2>
+                <p th:text="${a.stem}">题干</p>
+                <label class="opt">
+                    <input type="radio" th:name="'opt_' + ${a.questionId}" value="A" th:checked="${a.selectedOption == 'A'}">
+                    <span th:text="'A. ' + ${a.optionA}">A</span>
+                </label>
+                <label class="opt">
+                    <input type="radio" th:name="'opt_' + ${a.questionId}" value="B" th:checked="${a.selectedOption == 'B'}">
+                    <span th:text="'B. ' + ${a.optionB}">B</span>
+                </label>
+                <label class="opt">
+                    <input type="radio" th:name="'opt_' + ${a.questionId}" value="C" th:checked="${a.selectedOption == 'C'}">
+                    <span th:text="'C. ' + ${a.optionC}">C</span>
+                </label>
+                <label class="opt">
+                    <input type="radio" th:name="'opt_' + ${a.questionId}" value="D" th:checked="${a.selectedOption == 'D'}">
+                    <span th:text="'D. ' + ${a.optionD}">D</span>
+                </label>
+            </div>
+
+            <div class="card">
+                <button class="btn" type="submit" th:formaction="@{/attempts/{id}/submit(id=${attempt.attemptId})}"
+                        onclick="return confirm('交卷后不能修改答案，确定交卷吗？')">交卷并判分</button>
+                <button class="btn btn-line" type="submit"
+                        th:formaction="@{/attempts/{id}/save(id=${attempt.attemptId})}">保存答案</button>
+            </div>
+        </form>
+    </main>
+    <aside th:replace="~{layout :: sidebar}"></aside>
+</div>
+<script>
+    var deadline = new Date(document.getElementById('countdown').getAttribute('data-deadline')).getTime();
+    var el = document.getElementById('countdown');
+    function tick() {
+        var left = deadline - Date.now();
+        if (left <= 0) {
+            el.textContent = '已到截止时间';
+            el.removeAttribute('data-deadline');
+            document.getElementById('answerForm').submit();
+            return;
+        }
+        var m = Math.floor(left / 60000);
+        var s = Math.floor((left % 60000) / 1000);
+        el.textContent = m + ' 分 ' + s + ' 秒';
+        setTimeout(tick, 1000);
+    }
+    tick();
+</script>
+</body>
+</html>

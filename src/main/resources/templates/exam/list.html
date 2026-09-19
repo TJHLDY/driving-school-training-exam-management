@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('模拟考试 - 驾校培训与考试管理系统')}"></head>
+<body>
+<div class="app">
+    <main class="content">
+        <h1 class="page-title">题库与模拟考试</h1>
+
+        <div class="alert alert-ok" th:if="${msg}" th:text="${msg}"></div>
+        <div class="alert alert-err" th:if="${err}" th:text="${err}"></div>
+
+        <div class="card" th:if="${canManage}">
+            <h2>创建考试任务 <span class="sub">创建后先维护题目，至少 20 道启用题才能提交审核</span></h2>
+            <form th:action="@{/exams}" method="post" class="row-actions">
+                <input name="examName" placeholder="考试名称，例如 2026 秋季理论练习" required style="width:320px">
+                <button class="btn btn-sm">创建</button>
+            </form>
+        </div>
+
+        <div class="card" th:if="${canManage}">
+            <h2>我提交的考试任务</h2>
+            <table>
+                <thead><tr><th>编号</th><th>名称</th><th>状态</th><th>审核意见</th><th>操作</th></tr></thead>
+                <tbody>
+                <tr th:each="e : ${myExams}">
+                    <td th:text="${e.examId}">1</td>
+                    <td th:text="${e.examName}">考试</td>
+                    <td><span class="tag" th:classappend="${e.status == 'PUBLISHED'} ? 'tag-ok' : 'tag-off'" th:text="${e.status}">状态</span></td>
+                    <td th:text="${e.reviewNote} ?: '-'">-</td>
+                    <td class="row-actions">
+                        <a class="btn btn-sm btn-line" th:href="@{/exams/{id}/questions(id=${e.examId})}">维护题目</a>
+                        <form th:if="${e.status == 'DRAFT' or e.status == 'REJECTED'}"
+                              th:action="@{/exams/{id}/submit(id=${e.examId})}" method="post">
+                            <button class="btn btn-sm">提交审核</button>
+                        </form>
+                    </td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(myExams)}"><td colspan="5" class="muted">还没有考试任务</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card" th:if="${canReview}">
+            <h2>考试任务审核</h2>
+            <table>
+                <thead><tr><th>编号</th><th>名称</th><th>状态</th><th>题目数</th><th>操作</th></tr></thead>
+                <tbody>
+                <tr th:each="e : ${allExams}">
+                    <td th:text="${e.examId}">1</td>
+                    <td th:text="${e.examName}">考试</td>
+                    <td><span class="tag" th:classappend="${e.status == 'PUBLISHED'} ? 'tag-ok' : 'tag-off'" th:text="${e.status}">状态</span></td>
+                    <td th:text="${e.questionCount}">20</td>
+                    <td class="row-actions">
+                        <a class="btn btn-sm btn-line" th:href="@{/exams/{id}/questions(id=${e.examId})}">查看题目</a>
+                        <form th:if="${e.status == 'SUBMITTED'}" th:action="@{/exams/{id}/review(id=${e.examId})}" method="post">
+                            <input type="hidden" name="action" value="approve">
+                            <button class="btn btn-sm">发布</button>
+                        </form>
+                        <form th:if="${e.status == 'SUBMITTED'}" th:action="@{/exams/{id}/review(id=${e.examId})}" method="post">
+                            <input type="hidden" name="action" value="reject">
+                            <input type="hidden" name="reviewNote" value="题目需补充后重新提交">
+                            <button class="btn btn-sm btn-line">驳回</button>
+                        </form>
+                        <form th:if="${e.status == 'PUBLISHED'}" th:action="@{/exams/{id}/close(id=${e.examId})}" method="post">
+                            <button class="btn btn-sm btn-line">关闭</button>
+                        </form>
+                    </td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(allExams)}"><td colspan="5" class="muted">暂无数据</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card" th:if="${canTake}">
+            <h2>已发布的模拟考试 <span class="sub">抽 20 题、每题 5 分、20 分钟、90 分及格</span></h2>
+            <table>
+                <thead><tr><th>编号</th><th>名称</th><th>发布时间</th><th>操作</th></tr></thead>
+                <tbody>
+                <tr th:each="e : ${published}">
+                    <td th:text="${e.examId}">1</td>
+                    <td th:text="${e.examName}">考试</td>
+                    <td th:text="${e.publishedAt}">-</td>
+                    <td>
+                        <form th:action="@{/exams/{id}/start(id=${e.examId})}" method="post">
+                            <button class="btn btn-sm">开始考试</button>
+                        </form>
+                    </td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(published)}"><td colspan="4" class="muted">暂无已发布的考试</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card" th:if="${canTake}">
+            <h2>我的考试成绩</h2>
+            <table>
+                <thead><tr><th>答卷编号</th><th>考试</th><th>状态</th><th>分数</th><th>操作</th></tr></thead>
+                <tbody>
+                <tr th:each="a : ${attempts}">
+                    <td th:text="${a.attemptId}">1</td>
+                    <td th:text="${a.examName}">考试</td>
+                    <td th:text="${a.status}">状态</td>
+                    <td th:text="${a.score} ?: '-'">-</td>
+                    <td>
+                        <a class="btn btn-sm btn-line" th:if="${a.status == 'IN_PROGRESS'}" th:href="@{/attempts/{id}(id=${a.attemptId})}">继续答题</a>
+                        <a class="btn btn-sm btn-line" th:unless="${a.status == 'IN_PROGRESS'}" th:href="@{/attempts/{id}/result(id=${a.attemptId})}">查看成绩</a>
+                    </td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(attempts)}"><td colspan="5" class="muted">还没有答卷</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+    <aside th:replace="~{layout :: sidebar}"></aside>
+</div>
+</body>
+</html>

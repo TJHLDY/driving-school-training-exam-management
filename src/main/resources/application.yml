@@ -1,0 +1,41 @@
+server:
+  port: 8080
+  servlet:
+    encoding:
+      charset: UTF-8
+      force: true
+
+spring:
+  application:
+    name: driving-school
+  # 本地连接信息写在 application-local.yml 里，该文件已被 .gitignore 忽略，不会把密码提交上去
+  profiles:
+    active: local
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${MYSQL_URL:jdbc:mysql://localhost:3306/driving_school_v12?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
+    username: ${MYSQL_USERNAME:root}
+    password: ${MYSQL_PASSWORD:}
+  thymeleaf:
+    # 开发期关掉模板缓存，改完 HTML 刷新浏览器就能看到
+    cache: false
+    encoding: UTF-8
+    mode: HTML
+    prefix: classpath:/templates/
+    suffix: .html
+
+mybatis:
+  # 映射文件位置：src/main/resources/mapper/*.xml
+  mapper-locations: classpath:mapper/*.xml
+  # 实体类和 DTO 的包名，映射文件里 resultType / type 可以直接写类名
+  type-aliases-package: com.example.drivingschool.entity,com.example.drivingschool.dto
+  configuration:
+    # 数据库 snake_case 字段自动映射到 Java camelCase 属性，例如 user_id -> userId
+    map-underscore-to-camel-case: true
+    # 查询返回 Map 时，值为 NULL 的列也保留
+    call-setters-on-nulls: true
+
+# 开发期打印映射器执行的 SQL，方便核对
+logging:
+  level:
+    com.example.drivingschool.mapper: debug

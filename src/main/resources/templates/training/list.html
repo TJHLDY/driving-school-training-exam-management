@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('培训预约 - 驾校培训与考试管理系统')}"></head>
+<body>
+<div class="app">
+    <main class="content">
+        <h1 class="page-title">培训预约与学时</h1>
+
+        <div class="alert alert-ok" th:if="${msg}" th:text="${msg}"></div>
+        <div class="alert alert-err" th:if="${err}" th:text="${err}"></div>
+
+        <div class="card" th:if="${canManage}">
+            <h2>发布培训时段 <span class="sub">发布后学员可以认领</span></h2>
+            <form th:action="@{/training/slots}" method="post" class="row-actions">
+                <input type="datetime-local" name="plannedStart" required>
+                <input type="datetime-local" name="plannedEnd" required>
+                <input name="location" placeholder="训练场地" required style="width:160px">
+                <button class="btn btn-sm">发布时段</button>
+            </form>
+        </div>
+
+        <div class="card" th:if="${canBook}">
+            <h2>可预约时段 <span class="sub">累计有效学时：<span th:text="${totalHours}">0</span> 小时</span></h2>
+            <table>
+                <thead><tr><th>编号</th><th>开始</th><th>结束</th><th>场地</th><th>操作</th></tr></thead>
+                <tbody>
+                <tr th:each="s : ${openSlots}">
+                    <td th:text="${s.bookingId}">1</td>
+                    <td th:text="${s.plannedStart}">-</td>
+                    <td th:text="${s.plannedEnd}">-</td>
+                    <td th:text="${s.location}">-</td>
+                    <td class="row-actions">
+                        <form th:action="@{/training/{id}/claim(id=${s.bookingId})}" method="post">
+                            <button class="btn btn-sm">预约</button>
+                        </form>
+                    </td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(openSlots)}"><td colspan="5" class="muted">暂无可预约时段</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card">
+            <h2>培训记录</h2>
+            <table>
+                <thead>
+                <tr><th>编号</th><th>学员</th><th>教练</th><th>车牌</th><th>计划时间</th>
+                    <th>状态</th><th>实际学时</th><th>操作</th></tr>
+                </thead>
+                <tbody>
+                <tr th:each="b : ${bookings}">
+                    <td th:text="${b.bookingId}">1</td>
+                    <td th:text="${b.studentName} ?: '-'">-</td>
+                    <td th:text="${b.coachName} ?: '未分配'">-</td>
+                    <td th:text="${b.plateNo} ?: '未分配'">-</td>
+                    <td th:text="${b.plannedStart + ' ~ ' + b.plannedEnd}">-</td>
+                    <td><span class="tag" th:classappend="${b.status == 'COMPLETED'} ? 'tag-ok' : (${b.status == 'PENDING'} ? 'tag-warn' : 'tag-off')" th:text="${b.status}">状态</span></td>
+                    <td th:text="${b.validHours} ?: '-'">-</td>
+                    <td class="row-actions">
+                        <form th:if="${canManage and b.status == 'PENDING'}"
+                              th:action="@{/training/{id}/assign(id=${b.bookingId})}" method="post">
+                            <select name="coachUserId" required>
+                                <option th:each="c : ${coachList}" th:value="${c.userId}"
+                                        th:text="${c.realName + '（' + c.coachLicense + '）'}">教练</option>
+                            </select>
+                            <select name="vehicleId" required>
+                                <option th:each="v : ${vehicles}" th:value="${v.vehicleId}"
+                                        th:text="${v.plateNo + '（' + v.licenseType + '）'}">车辆</option>
+                            </select>
+                            <button class="btn btn-sm">分配</button>
+                        </form>
+                        <form th:if="${canRecord and b.status == 'ASSIGNED' and b.coachUserId == loginUser.userId}"
+                              th:action="@{/training/{id}/record(id=${b.bookingId})}" method="post">
+                            <input type="datetime-local" name="actualStart" required>
+                            <input type="datetime-local" name="actualEnd" required>
+                            <input type="number" step="0.5" min="0" name="validHours" placeholder="学时" required style="width:80px">
+                            <input name="resultNote" placeholder="备注" style="width:110px">
+                            <button class="btn btn-sm">登记结果</button>
+                        </form>
+                        <form th:if="${(canManage or b.studentUserId == loginUser.userId) and (b.status == 'PENDING' or b.status == 'ASSIGNED')}"
+                              th:action="@{/training/{id}/cancel(id=${b.bookingId})}" method="post">
+                            <button class="btn btn-sm btn-line">取消</button>
+                        </form>
+                    </td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(bookings)}"><td colspan="8" class="muted">暂无数据</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <p class="muted">一条培训记录就是一次单人培训：教务发布时状态为 OPEN，学员认领后 PENDING，分配教练车辆后 ASSIGNED，教练登记结果后 COMPLETED；开始前可以取消为 CANCELLED，取消记录保留不复用。</p>
+    </main>
+    <aside th:replace="~{layout :: sidebar}"></aside>
+</div>
+</body>
+</html>

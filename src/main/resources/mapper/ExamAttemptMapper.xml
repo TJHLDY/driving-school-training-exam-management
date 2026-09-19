@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.drivingschool.mapper.ExamAttemptMapper">
+    <resultMap id="BaseResultMap" type="ExamAttempt">
+        <id property="attemptId" column="attempt_id"/>
+        <result property="examId" column="exam_id"/>
+        <result property="studentUserId" column="student_user_id"/>
+        <result property="status" column="status"/>
+        <result property="startedAt" column="started_at"/>
+        <result property="deadlineAt" column="deadline_at"/>
+        <result property="submittedAt" column="submitted_at"/>
+        <result property="score" column="score"/>
+    </resultMap>
+    <resultMap id="DetailResultMap" type="ExamAttemptDetailDto">
+        <id property="attemptId" column="attempt_id"/>
+        <result property="examId" column="exam_id"/>
+        <result property="examName" column="exam_name"/>
+        <result property="studentUserId" column="student_user_id"/>
+        <result property="studentName" column="student_name"/>
+        <result property="status" column="status"/>
+        <result property="startedAt" column="started_at"/>
+        <result property="deadlineAt" column="deadline_at"/>
+        <result property="submittedAt" column="submitted_at"/>
+        <result property="score" column="score"/>
+    </resultMap>
+    <sql id="BaseColumns">
+        attempt_id, exam_id, student_user_id, status, started_at, deadline_at, submitted_at, score
+    </sql>
+    <sql id="DetailSelect">
+        SELECT a.attempt_id, a.exam_id, e.exam_name, a.student_user_id, u.real_name AS student_name,
+               a.status, a.started_at, a.deadline_at, a.submitted_at, a.score
+        FROM exam_attempt a
+        JOIN mock_exam e ON e.exam_id = a.exam_id
+        JOIN user_account u ON u.user_id = a.student_user_id
+    </sql>
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT <include refid="BaseColumns"/> FROM exam_attempt WHERE attempt_id = #{attemptId}
+    </select>
+    <select id="selectDetailById" resultMap="DetailResultMap">
+        <include refid="DetailSelect"/> WHERE a.attempt_id = #{attemptId}
+    </select>
+    <select id="selectByExamIdAndStudentUserId" resultMap="BaseResultMap">
+        SELECT <include refid="BaseColumns"/>
+        FROM exam_attempt
+        WHERE exam_id = #{examId} AND student_user_id = #{studentUserId}
+    </select>
+    <select id="selectDetailListByStudentUserId" resultMap="DetailResultMap">
+        <include refid="DetailSelect"/>
+        WHERE a.student_user_id = #{studentUserId}
+        ORDER BY a.started_at DESC, a.attempt_id DESC
+    </select>
+    <select id="selectDetailListByExamId" resultMap="DetailResultMap">
+        <include refid="DetailSelect"/>
+        WHERE a.exam_id = #{examId}
+        ORDER BY a.student_user_id
+    </select>
+    <insert id="insert" parameterType="ExamAttempt" useGeneratedKeys="true" keyProperty="attemptId">
+        INSERT INTO exam_attempt (exam_id, student_user_id, status, started_at, deadline_at)
+        VALUES (#{examId}, #{studentUserId}, 'IN_PROGRESS', #{startedAt}, #{deadlineAt})
+    </insert>
+    <!-- 只允许 IN_PROGRESS 交卷；重复提交返回 0，成绩不会被覆盖 -->
+    <update id="submit">
+        UPDATE exam_attempt
+        SET status = 'SUBMITTED', submitted_at = NOW(), score = #{score}
+        WHERE attempt_id = #{attemptId} AND status = 'IN_PROGRESS'
+    </update>
+    <update id="markExpired">
+        UPDATE exam_attempt
+        SET status = 'EXPIRED', submitted_at = NOW(), score = #{score}
+        WHERE attempt_id = #{attemptId} AND status = 'IN_PROGRESS' AND deadline_at &lt; NOW()
+    </update>
+</mapper>

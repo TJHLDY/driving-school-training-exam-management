@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('登录 - 驾校培训与考试管理系统')}"></head>
+<body>
+<div class="auth-wrap">
+    <div class="auth-box">
+        <h1>驾校培训与考试管理系统</h1>
+        <p class="sub">请使用系统账号登录</p>
+
+        <div class="alert alert-err" th:if="${error}" th:text="${error}"></div>
+        <div class="alert alert-ok" th:if="${success}" th:text="${success}"></div>
+
+        <form th:action="@{/login}" method="post">
+            <div class="form-row">
+                <label>用户名</label>
+                <input name="username" required autofocus>
+            </div>
+            <div class="form-row">
+                <label>密码</label>
+                <input type="password" name="password" required>
+            </div>
+            <button class="btn btn-full">登录</button>
+        </form>
+
+        <p class="hint">还没有账号？<a th:href="@{/register}">注册学员账号</a></p>
+        <p class="hint">演示账号：admin / academic / finance / coach / student / student_refund<br>密码：Demo@123</p>
+    </div>
+</div>
+</body>
+</html>

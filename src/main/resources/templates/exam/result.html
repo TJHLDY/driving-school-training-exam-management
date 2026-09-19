@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('考试成绩 - 驾校培训与考试管理系统')}"></head>
+<body>
+<div class="app">
+    <main class="content">
+        <h1 class="page-title">考试成绩：<span th:text="${attempt.examName}">考试</span></h1>
+
+        <div class="card">
+            <h2>成绩单</h2>
+            <table>
+                <tr><th style="width:120px">学员</th><td th:text="${attempt.studentName}">学员</td></tr>
+                <tr><th>状态</th><td th:text="${attempt.status}">SUBMITTED</td></tr>
+                <tr><th>分数</th><td><span class="tag" th:classappend="${passed} ? 'tag-ok' : 'tag-warn'"
+                                              th:text="${score} + ' 分'">0 分</span>
+                    <span th:text="${passed} ? '及格' : '不及格'"></span></td></tr>
+                <tr><th>错题数</th><td th:text="${wrongCount} + ' 题'">0 题</td></tr>
+                <tr><th>交卷时间</th><td th:text="${attempt.submittedAt}">-</td></tr>
+            </table>
+        </div>
+
+        <div class="card">
+            <h2>答题明细与错题解析</h2>
+            <table>
+                <thead>
+                <tr><th>题序</th><th>题干</th><th>你的答案</th><th>正确答案</th><th>得分</th><th>解析</th></tr>
+                </thead>
+                <tbody>
+                <tr th:each="a : ${answers}">
+                    <td th:text="${a.positionNo}">1</td>
+                    <td th:text="${a.stem}">题干</td>
+                    <td th:text="${a.selectedOption} ?: '未作答'">-</td>
+                    <td th:text="${a.correctOption}">A</td>
+                    <td th:text="${a.scoreAwarded}">0</td>
+                    <td th:text="${a.explanation}">解析</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+        <a class="btn btn-line" th:href="@{/exams}">返回考试列表</a>
+    </main>
+    <aside th:replace="~{layout :: sidebar}"></aside>
+</div>
+</body>
+</html>

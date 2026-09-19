@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('提交报名 - 驾校培训与考试管理系统')}"></head>
+<body>
+<div class="app">
+    <main class="content">
+        <h1 class="page-title">提交报名</h1>
+        <div class="card" style="max-width:480px">
+            <h2>选择报考车型</h2>
+            <form th:action="@{/enrollments}" method="post">
+                <div class="form-row">
+                    <label>驾照类型</label>
+                    <select name="licenseType" required>
+                        <option value="C1">C1 小型手动挡</option>
+                        <option value="C2">C2 小型自动挡</option>
+                    </select>
+                </div>
+                <button class="btn">提交报名</button>
+                <a class="btn btn-line" th:href="@{/enrollments}">返回</a>
+            </form>
+        </div>
+        <p class="muted">提交后状态为 SUBMITTED，费用和学时先按车型默认值带入，最终以教务审核确认的金额和学时为准，学员不能自行改价。</p>
+    </main>
+    <aside th:replace="~{layout :: sidebar}"></aside>
+</div>
+</body>
+</html>

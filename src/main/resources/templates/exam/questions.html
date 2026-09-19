@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('考试题目 - 驾校培训与考试管理系统')}"></head>
+<body>
+<div class="app">
+    <main class="content">
+        <h1 class="page-title">题目维护：<span th:text="${exam.examName}">考试</span></h1>
+
+        <div class="alert alert-ok" th:if="${msg}" th:text="${msg}"></div>
+        <div class="alert alert-err" th:if="${err}" th:text="${err}"></div>
+
+        <div class="card">
+            <h2>任务信息</h2>
+            <table>
+                <tr><th style="width:120px">状态</th><td th:text="${exam.status}">DRAFT</td></tr>
+                <tr><th>启用题目</th><td><span th:text="${enabledCount}">0</span> 道（提交审核至少需要 20 道）</td></tr>
+            </table>
+            <div class="toolbar" style="margin-top:12px">
+                <a class="btn btn-sm btn-line" th:href="@{/exams}">返回</a>
+                <form class="inline-form" th:if="${enabledCount >= 20 and (exam.status == 'DRAFT' or exam.status == 'REJECTED')}"
+                      th:action="@{/exams/{id}/submit(id=${exam.examId})}" method="post">
+                    <button class="btn btn-sm">提交教务审核</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card" th:if="${editable}">
+            <h2>新增题目</h2>
+            <form th:action="@{/exams/{id}/questions(id=${exam.examId})}" method="post">
+                <div class="form-row"><label>分类</label><input name="category" required></div>
+                <div class="form-row"><label>题干</label><input name="stem" required></div>
+                <div class="row-actions">
+                    <div class="form-row"><label>A</label><input name="optionA" required></div>
+                    <div class="form-row"><label>B</label><input name="optionB" required></div>
+                    <div class="form-row"><label>C</label><input name="optionC" required></div>
+                    <div class="form-row"><label>D</label><input name="optionD" required></div>
+                </div>
+                <div class="row-actions">
+                    <div class="form-row">
+                        <label>正确答案</label>
+                        <select name="correctOption">
+                            <option value="A">A</option><option value="B">B</option>
+                            <option value="C">C</option><option value="D">D</option>
+                        </select>
+                    </div>
+                    <button class="btn">添加题目</button>
+                </div>
+                <div class="form-row"><label>解析</label><input name="explanation" required></div>
+            </form>
+        </div>
+        <p class="muted" th:unless="${editable}">当前状态不允许修改题目：已提交、已发布或已关闭的任务需要保持历史成绩对应的题目不变，如需修改请新建任务。</p>
+
+        <div class="card">
+            <h2>题目列表</h2>
+            <table>
+                <thead><tr><th>编号</th><th>分类</th><th>题干</th><th>答案</th><th>状态</th><th>操作</th></tr></thead>
+                <tbody>
+                <tr th:each="q : ${questions}">
+                    <td th:text="${q.questionId}">1</td>
+                    <td th:text="${q.category}">分类</td>
+                    <td th:text="${q.stem}">题干</td>
+                    <td th:text="${q.correctOption}">A</td>
+                    <td><span class="tag" th:classappend="${q.enabled} ? 'tag-ok' : 'tag-off'" th:text="${q.enabled} ? '启用' : '停用'">状态</span></td>
+                    <td>
+                        <form th:if="${editable}" th:action="@{/exams/{id}/questions/{qid}/toggle(id=${exam.examId}, qid=${q.questionId})}" method="post">
+                            <button class="btn btn-sm btn-line">启用/停用</button>
+                        </form>
+                    </td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(questions)}"><td colspan="6" class="muted">还没有题目</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+    <aside th:replace="~{layout :: sidebar}"></aside>
+</div>
+</body>
+</html>

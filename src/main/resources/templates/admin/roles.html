@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('角色管理 - 驾校培训与考试管理系统')}"></head>
+<body>
+<div class="app">
+    <main class="content">
+        <h1 class="page-title">角色管理</h1>
+
+        <div class="alert alert-ok" th:if="${msg}" th:text="${msg}"></div>
+        <div class="alert alert-err" th:if="${err}" th:text="${err}"></div>
+
+        <div class="card">
+            <h2>新增角色</h2>
+            <form th:action="@{/roles}" method="post" class="row-actions">
+                <input name="roleCode" placeholder="角色编码，例如 ASSISTANT" required style="width:220px">
+                <input name="roleName" placeholder="角色名称" required style="width:180px">
+                <button class="btn btn-sm">新增</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h2>角色列表</h2>
+            <table>
+                <thead><tr><th>编号</th><th>编码</th><th>名称</th><th>菜单项数量</th></tr></thead>
+                <tbody>
+                <tr th:each="r : ${roles}">
+                    <td th:text="${r.roleId}">1</td>
+                    <td th:text="${r.roleCode}">ADMIN</td>
+                    <td th:text="${r.roleName}">管理员</td>
+                    <td th:text="${menuCount.get(r.roleId)} ?: 0">0</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+    <aside th:replace="~{layout :: sidebar}"></aside>
+</div>
+</body>
+</html>

@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:fragment="head(title)">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title th:text="${title}">驾校培训与考试管理系统</title>
+    <link rel="stylesheet" th:href="@{/css/bootstrap.min.css}">
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<!-- B 布局：右侧菜单、左侧内容 -->
+<aside class="sidebar" th:fragment="sidebar">
+    <div class="brand">驾校培训与考试管理系统</div>
+    <div class="user-box" th:if="${loginUser != null}">
+        <div class="name" th:text="${loginUser.realName}">姓名</div>
+        <div th:text="${loginUser.roleNames}">角色</div>
+    </div>
+    <nav>
+        <a th:each="m : ${menus}" th:href="@{${m.routePath}}" th:text="${m.menuName}">菜单项</a>
+    </nav>
+    <a class="logout" th:href="@{/logout}">退出登录</a>
+</aside>
+</body>
+</html>

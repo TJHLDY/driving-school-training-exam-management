@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('个人中心 - 驾校培训与考试管理系统')}"></head>
+<body>
+<div class="app">
+    <main class="content">
+        <h1 class="page-title">个人中心</h1>
+        <div class="card">
+            <h2>账号信息</h2>
+            <table>
+                <tr><th style="width:140px">登录名</th><td th:text="${loginUser.username}">-</td></tr>
+                <tr><th>真实姓名</th><td th:text="${loginUser.realName}">-</td></tr>
+                <tr><th>角色</th><td th:text="${loginUser.roleNames}">-</td></tr>
+                <tr><th>用户 ID</th><td th:text="${loginUser.userId}">-</td></tr>
+            </table>
+        </div>
+        <p class="muted">本系统学员和教练都使用同一个账号表，用身份证号或教练准教车型区分身份，不再有独立的学员号和教练号。</p>
+    </main>
+    <aside th:replace="~{layout :: sidebar}"></aside>
+</div>
+</body>
+</html>

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('首页 - 驾校培训与考试管理系统')}"></head>
+<body>
+<div class="app">
+    <main class="content">
+        <h1 class="page-title">你好，<span th:text="${loginUser.realName}">用户</span></h1>
+
+        <div class="card">
+            <h2>我的角色</h2>
+            <span class="tag" th:each="code : ${loginUser.roleCodes}" th:text="${code}">ROLE</span>
+        </div>
+
+        <div class="card">
+            <h2>我能使用的功能</h2>
+            <ul class="tips">
+                <li th:if="${isStudent}">提交报名、预约培训、参加模拟考试、提交退学申请</li>
+                <li th:if="${isAcademic}">审核报名、发布培训时段并分配教练车辆、审核发布考试、核定退费</li>
+                <li th:if="${isCoach}">维护题目、提交考试方案、登记自己负责的培训结果</li>
+                <li th:if="${isFinance}">登记全额缴费、登记退款</li>
+                <li th:if="${isAdmin}">维护账号、角色和菜单</li>
+            </ul>
+        </div>
+
+        <div class="card">
+            <h2>说明</h2>
+            <p class="muted">右侧菜单是按当前登录用户的角色从数据库查出的，并按访问路径去重；菜单可见不代表拥有全部业务权限，后端会再次校验角色、归属和状态。</p>
+        </div>
+    </main>
+    <aside th:replace="~{layout :: sidebar}"></aside>
+</div>
+</body>
+</html>

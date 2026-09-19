@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.drivingschool.mapper.QuestionBankMapper">
+    <resultMap id="BaseResultMap" type="QuestionBank">
+        <id property="questionId" column="question_id"/>
+        <result property="examId" column="exam_id"/>
+        <result property="category" column="category"/>
+        <result property="stem" column="stem"/>
+        <result property="optionA" column="option_a"/>
+        <result property="optionB" column="option_b"/>
+        <result property="optionC" column="option_c"/>
+        <result property="optionD" column="option_d"/>
+        <result property="correctOption" column="correct_option"/>
+        <result property="explanation" column="explanation"/>
+        <result property="enabled" column="enabled"/>
+    </resultMap>
+    <sql id="BaseColumns">
+        question_id, exam_id, category, stem, option_a, option_b, option_c, option_d,
+        correct_option, explanation, enabled
+    </sql>
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT <include refid="BaseColumns"/> FROM question_bank WHERE question_id = #{questionId}
+    </select>
+    <select id="selectList" resultMap="BaseResultMap">
+        SELECT <include refid="BaseColumns"/>
+        FROM question_bank
+        <where>
+            <if test="examId != null">exam_id = #{examId}</if>
+            <if test="enabled != null">AND enabled = #{enabled}</if>
+            <if test="keyword != null and keyword != ''">AND stem LIKE CONCAT('%', #{keyword}, '%')</if>
+        </where>
+        ORDER BY question_id
+    </select>
+    <select id="countEnabledByExamId" resultType="int">
+        SELECT COUNT(*) FROM question_bank WHERE exam_id = #{examId} AND enabled = TRUE
+    </select>
+    <select id="countByExamIdAndStem" resultType="int">
+        SELECT COUNT(*) FROM question_bank WHERE exam_id = #{examId} AND stem = #{stem}
+    </select>
+    <insert id="insert" parameterType="QuestionBank" useGeneratedKeys="true" keyProperty="questionId">
+        INSERT INTO question_bank (exam_id, category, stem, option_a, option_b, option_c, option_d,
+                                   correct_option, explanation, enabled)
+        VALUES (#{examId}, #{category}, #{stem}, #{optionA}, #{optionB}, #{optionC}, #{optionD},
+                #{correctOption}, #{explanation}, COALESCE(#{enabled}, TRUE))
+    </insert>
+    <insert id="insertBatch">
+        INSERT INTO question_bank (exam_id, category, stem, option_a, option_b, option_c, option_d,
+                                   correct_option, explanation, enabled)
+        VALUES
+        <foreach collection="list" item="q" separator=",">
+            (#{q.examId}, #{q.category}, #{q.stem}, #{q.optionA}, #{q.optionB},
+             #{q.optionC}, #{q.optionD}, #{q.correctOption}, #{q.explanation},
+             COALESCE(#{q.enabled}, TRUE))
+        </foreach>
+    </insert>
+    <update id="updateById" parameterType="QuestionBank">
+        UPDATE question_bank
+        <set>
+            <if test="category != null and category != ''">category = #{category},</if>
+            <if test="stem != null and stem != ''">stem = #{stem},</if>
+            <if test="optionA != null">option_a = #{optionA},</if>
+            <if test="optionB != null">option_b = #{optionB},</if>
+            <if test="optionC != null">option_c = #{optionC},</if>
+            <if test="optionD != null">option_d = #{optionD},</if>
+            <if test="correctOption != null and correctOption != ''">correct_option = #{correctOption},</if>
+            <if test="explanation != null">explanation = #{explanation},</if>
+            <if test="enabled != null">enabled = #{enabled},</if>
+        </set>
+        WHERE question_id = #{questionId}
+    </update>
+    <update id="updateEnabled">
+        UPDATE question_bank SET enabled = #{enabled} WHERE question_id = #{questionId}
+    </update>
+    <delete id="deleteById">
+        DELETE FROM question_bank WHERE question_id = #{questionId}
+    </delete>
+    <!-- 从本考试的启用题里随机抽题，只在开考那一刻执行一次 -->
+    <select id="selectRandomByExamId" resultMap="BaseResultMap">
+        SELECT <include refid="BaseColumns"/>
+        FROM question_bank
+        WHERE exam_id = #{examId} AND enabled = TRUE
+        ORDER BY RAND()
+        LIMIT #{limit}
+    </select>
+</mapper>
